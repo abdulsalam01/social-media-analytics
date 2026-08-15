@@ -1,6 +1,8 @@
 import { createClient, type Client, type Transaction, type InValue } from "@libsql/client";
 import path from "node:path";
 import fs from "node:fs";
+import bcrypt from "bcryptjs";
+import { ensureSchema } from "./migrations";
 
 declare global {
   // eslint-disable-next-line no-var
@@ -25,21 +27,65 @@ function open(): Client {
 export const db: Client = global.__libsql ?? open();
 if (process.env.NODE_ENV !== "production") global.__libsql = db;
 
+/**
+ * Bootstrap admin from ADMIN_EMAIL + ADMIN_PASSWORD env if no admin exists.
+ * Runs once per process, after schema. Silent no-op if env missing or admin already there.
+ */
+let adminBootstrapPromise: Promise<void> | null = null;
+async function ensureAdminBootstrap(client: Client): Promise<void> {
+  if (adminBootstrapPromise) return adminBootstrapPromise;
+  adminBootstrapPromise = (async () => {
+    const email = process.env.ADMIN_EMAIL;
+    const password = process.env.ADMIN_PASSWORD;
+    if (!email || !password) return;
+    try {
+      const existing = await client.execute({
+        sql: "SELECT id FROM users WHERE email = ?",
+        args: [email.toLowerCase()],
+      });
+      if (existing.rows.length > 0) return;
+      const hash = bcrypt.hashSync(password, 12);
+      await client.execute({
+        sql: "INSERT INTO users (email, password_hash, name, role) VALUES (?, ?, ?, 'admin')",
+        args: [email.toLowerCase(), hash, "Administrator"],
+      });
+      console.log(`[db] Admin bootstrapped: ${email}`);
+    } catch (e) {
+      console.error("[db] Admin bootstrap failed:", e);
+    }
+  })();
+  return adminBootstrapPromise;
+}
+
+// Kick off schema + admin bootstrap (fire-and-forget). Every helper below awaits ensureSchema
+// so the first query blocks until DDL applied. Subsequent calls are no-ops.
+(async () => {
+  try {
+    await ensureSchema(db);
+    await ensureAdminBootstrap(db);
+  } catch (e) {
+    console.error("[db] Init failed:", e);
+  }
+})();
+
 export type { Transaction };
 
 // ---------- Query helpers (mimic better-sqlite3 API but async) ----------
 
 export async function dbAll<T = Record<string, unknown>>(sql: string, args: InValue[] = []): Promise<T[]> {
+  await ensureSchema(db);
   const r = await db.execute({ sql, args });
   return r.rows as unknown as T[];
 }
 
 export async function dbGet<T = Record<string, unknown>>(sql: string, args: InValue[] = []): Promise<T | undefined> {
+  await ensureSchema(db);
   const r = await db.execute({ sql, args });
   return (r.rows[0] as unknown as T) ?? undefined;
 }
 
 export async function dbRun(sql: string, args: InValue[] = []): Promise<{ changes: number; lastInsertRowid: number }> {
+  await ensureSchema(db);
   const r = await db.execute({ sql, args });
   return {
     changes: Number(r.rowsAffected ?? 0),
@@ -48,6 +94,7 @@ export async function dbRun(sql: string, args: InValue[] = []): Promise<{ change
 }
 
 export async function dbExec(sql: string): Promise<void> {
+  await ensureSchema(db);
   await db.executeMultiple(sql);
 }
 
@@ -56,6 +103,7 @@ export async function dbExec(sql: string): Promise<void> {
  * Pass tx to helpers to keep operations atomic.
  */
 export async function dbTx<T>(fn: (tx: Transaction) => Promise<T>): Promise<T> {
+  await ensureSchema(db);
   const tx = await db.transaction("write");
   try {
     const result = await fn(tx);
