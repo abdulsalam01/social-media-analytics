@@ -14,7 +14,7 @@ Dashboard analytics sosial media buat Instagram & TikTok. Ganti kerjaan manual d
 - Backup 1-klik (download file database)
 - Role-based access: Admin, Editor, Viewer
 - Audit log aktivitas
-- Panduan pemakaian bawaan di dalam aplikasi
+- Panduan pemakaian bawaan di dalam aplikasi.
 
 ## Kebutuhan
 
