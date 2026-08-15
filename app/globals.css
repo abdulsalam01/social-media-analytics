@@ -1,0 +1,86 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg: 248 250 252;
+    --fg: 15 23 42;
+    --muted: 100 116 139;
+    --card: 255 255 255;
+    --border: 226 232 240;
+  }
+  html, body { height: 100%; }
+  body {
+    background: rgb(var(--bg));
+    color: rgb(var(--fg));
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium
+           transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-primary { @apply btn bg-brand-600 text-white hover:bg-brand-700 shadow-sm; }
+  .btn-secondary { @apply btn bg-white text-slate-700 border border-slate-200 hover:bg-slate-50; }
+  .btn-ghost { @apply btn text-slate-600 hover:bg-slate-100; }
+  .btn-danger { @apply btn bg-red-600 text-white hover:bg-red-700; }
+
+  .input {
+    @apply w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900
+           placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500
+           disabled:bg-slate-50;
+  }
+  .label { @apply block text-sm font-medium text-slate-700 mb-1.5; }
+  .hint { @apply mt-1 text-xs text-slate-500; }
+
+  .card {
+    @apply rounded-2xl border border-slate-200 bg-white shadow-soft;
+  }
+  .card-hd { @apply px-5 py-4 border-b border-slate-100 flex items-center justify-between; }
+  .card-bd { @apply p-5; }
+
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+  .badge-green { @apply badge bg-emerald-50 text-emerald-700 border border-emerald-200; }
+  .badge-red   { @apply badge bg-red-50 text-red-700 border border-red-200; }
+  .badge-blue  { @apply badge bg-brand-50 text-brand-700 border border-brand-200; }
+  .badge-slate { @apply badge bg-slate-100 text-slate-700 border border-slate-200; }
+}
+
+/* Print / PDF-friendly */
+@media print {
+  @page { size: A4; margin: 14mm; }
+  .no-print { display: none !important; }
+  body { background: white !important; color: black !important; font-size: 11px; }
+  main { padding: 0 !important; max-width: none !important; }
+  aside, header { display: none !important; }
+  .lg\:pl-64 { padding-left: 0 !important; }
+  .card {
+    box-shadow: none !important;
+    border-color: #d1d5db !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .grid { display: grid !important; break-inside: avoid; }
+  .recharts-wrapper { break-inside: avoid; }
+  h1 { font-size: 18px !important; }
+  h2 { font-size: 15px !important; }
+  h3 { font-size: 13px !important; }
+  .print\:block { display: block !important; }
+  a { color: black !important; text-decoration: none !important; }
+  .badge-green, .badge-red, .badge-blue, .badge-slate {
+    border-width: 1px !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  .bg-gradient-to-r, .bg-gradient-to-br {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}
