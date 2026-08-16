@@ -1,5 +1,6 @@
 import { getIronSession, SessionOptions } from "iron-session";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import type { Role } from "./db";
 
 export type SessionUser = {
@@ -52,5 +53,13 @@ export async function requireUser(): Promise<SessionUser> {
 export async function requireRole(roles: Role[]): Promise<SessionUser> {
   const u = await requireUser();
   if (!roles.includes(u.role)) throw new Error("FORBIDDEN");
+  return u;
+}
+
+/** Page-level guard — redirects instead of throwing. Use in server components. */
+export async function requirePageRole(roles: Role[]): Promise<SessionUser> {
+  const u = await currentUser();
+  if (!u) redirect("/login");
+  if (!roles.includes(u.role)) redirect("/dashboard");
   return u;
 }

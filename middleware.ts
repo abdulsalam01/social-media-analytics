@@ -10,7 +10,7 @@ export function middleware(req: NextRequest) {
       pathname.startsWith("/accounts") || pathname.startsWith("/input") ||
       pathname.startsWith("/report") || pathname.startsWith("/settings") ||
       pathname.startsWith("/compare") || pathname.startsWith("/help") ||
-      pathname.startsWith("/content")) {
+      pathname.startsWith("/content") || pathname.startsWith("/scraper")) {
     const hasSession = req.cookies.get("socmed_insight_session");
     if (!hasSession) {
       const url = req.nextUrl.clone();

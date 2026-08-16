@@ -2,11 +2,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { dbGet, Account } from "@/lib/db";
+import { requirePageRole } from "@/lib/session";
 import EditAccountForm from "./EditAccountForm";
 
 export const dynamic = "force-dynamic";
 
 export default async function EditAccountPage({ params }: { params: Promise<{ id: string }> }) {
+  await requirePageRole(["admin", "editor"]);
   const { id } = await params;
   const account = await dbGet<Account>("SELECT * FROM accounts WHERE id = ?", [parseInt(id)]);
   if (!account) notFound();

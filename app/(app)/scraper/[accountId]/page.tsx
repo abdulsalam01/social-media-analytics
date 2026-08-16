@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { dbGet, dbAll } from "@/lib/db";
+import { requirePageRole } from "@/lib/session";
 import PostScrapeClient from "./PostScrapeClient";
 
 export const dynamic = "force-dynamic";
@@ -9,6 +10,7 @@ export default async function AccountScraperPage({
 }: {
   params: Promise<{ accountId: string }>;
 }) {
+  await requirePageRole(["admin"]);
   const { accountId } = await params;
   const id = parseInt(accountId, 10);
   if (isNaN(id)) notFound();

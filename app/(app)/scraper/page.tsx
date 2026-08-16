@@ -1,9 +1,11 @@
 import { dbAll } from "@/lib/db";
+import { requirePageRole } from "@/lib/session";
 import ScraperClient from "./ScraperClient";
 
 export const dynamic = "force-dynamic";
 
 export default async function ScraperPage() {
+  await requirePageRole(["admin"]);
   const accounts = await dbAll(
     `SELECT a.id, a.name, a.handle, a.platform, a.scrape_enabled,
             a.last_scraped_at, a.last_scrape_status,

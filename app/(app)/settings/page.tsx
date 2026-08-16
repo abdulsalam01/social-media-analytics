@@ -1,4 +1,4 @@
-import { currentUser } from "@/lib/session";
+import { requirePageRole } from "@/lib/session";
 import { dbAll, dbGet } from "@/lib/db";
 import UserManager from "./UserManager";
 import BackupCard from "./BackupCard";
@@ -8,7 +8,7 @@ import { Shield, Database, Users, Clock } from "lucide-react";
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
-  const me = await currentUser();
+  const me = await requirePageRole(["admin"]);
   const users = await dbAll<{ id: number; email: string; name: string; role: string; created_at: string }>(
     "SELECT id, email, name, role, created_at FROM users ORDER BY created_at ASC"
   );
@@ -40,7 +40,7 @@ export default async function SettingsPage() {
             <div className="flex items-center gap-2"><Users className="w-4 h-4 text-brand-600" /><span className="font-semibold">Pengguna</span></div>
           </div>
           <div className="card-bd">
-            <UserManager users={users} meRole={me?.role || "viewer"} meId={me?.id || 0} />
+            <UserManager users={users} meRole={me.role} meId={me.id} />
           </div>
         </div>
 
@@ -101,7 +101,7 @@ export default async function SettingsPage() {
         </div>
       </div>
 
-      {me?.role === "admin" && <DangerZone stats={JSON.parse(JSON.stringify(stats))} />}
+      <DangerZone stats={JSON.parse(JSON.stringify(stats))} />
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { dbAll, dbGet, Account } from "@/lib/db";
+import { requirePageRole } from "@/lib/session";
 import EmptyState from "@/components/EmptyState";
 import PlatformBadge from "@/components/PlatformBadge";
 import InputTabs from "./InputTabs";
@@ -15,6 +16,7 @@ export default async function InputPage({
 }: {
   searchParams: Promise<{ account?: string; view?: string; p?: string; c?: string }>;
 }) {
+  await requirePageRole(["admin", "editor"]);
   const sp = await searchParams;
   const accounts = await dbAll<Account>("SELECT * FROM accounts ORDER BY name ASC");
   if (accounts.length === 0) {

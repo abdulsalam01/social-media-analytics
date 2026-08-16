@@ -10,7 +10,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <ToastProvider>
       <div className="min-h-screen bg-slate-50">
-        <Sidebar />
+        <Sidebar userRole={user.role} />
         <div className="lg:pl-64">
           <Topbar user={user} />
           <main className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto">{children}</main>

@@ -5,19 +5,23 @@ import { LayoutDashboard, Users, PencilLine, FileBarChart2, Settings, HelpCircle
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 
-const nav = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, hint: "Ringkasan performa" },
-  { href: "/accounts", label: "Akun Sosmed", icon: Users, hint: "Kelola akun" },
-  { href: "/input", label: "Input Data", icon: PencilLine, hint: "Masukin data mingguan" },
-  { href: "/compare", label: "Bandingkan Brand", icon: GitCompareArrows, hint: "Head-to-head brand" },
-  { href: "/report", label: "Laporan", icon: FileBarChart2, hint: "Report mingguan + PDF" },
-  { href: "/scraper", label: "Pelacak Otomatis", icon: ScanSearch, hint: "Scraping IG & TikTok harian" },
-  { href: "/settings", label: "Pengaturan", icon: Settings, hint: "Pengguna, backup" },
-];
+type Role = "admin" | "editor" | "viewer";
 
-export default function Sidebar() {
+const nav = [
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, hint: "Ringkasan performa", roles: ["admin", "editor", "viewer"] },
+  { href: "/accounts", label: "Akun Sosmed", icon: Users, hint: "Kelola akun", roles: ["admin", "editor", "viewer"] },
+  { href: "/input", label: "Input Data", icon: PencilLine, hint: "Masukin data mingguan", roles: ["admin", "editor"] },
+  { href: "/compare", label: "Bandingkan Brand", icon: GitCompareArrows, hint: "Head-to-head brand", roles: ["admin", "editor", "viewer"] },
+  { href: "/report", label: "Laporan", icon: FileBarChart2, hint: "Report mingguan + PDF", roles: ["admin", "editor", "viewer"] },
+  { href: "/scraper", label: "Pelacak Otomatis", icon: ScanSearch, hint: "Scraping IG & TikTok harian", roles: ["admin"] },
+  { href: "/settings", label: "Pengaturan", icon: Settings, hint: "Pengguna, backup", roles: ["admin"] },
+] satisfies { href: string; label: string; icon: React.ComponentType<{ className?: string }>; hint: string; roles: Role[] }[];
+
+export default function Sidebar({ userRole }: { userRole: Role }) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
+  const visible = nav.filter((n) => n.roles.includes(userRole));
+
   return (
     <>
       <button
@@ -50,7 +54,7 @@ export default function Sidebar() {
           </div>
         </div>
         <nav className="p-3 space-y-1">
-          {nav.map((n) => {
+          {visible.map((n) => {
             const active = path === n.href || path.startsWith(n.href + "/");
             const Icon = n.icon;
             return (
