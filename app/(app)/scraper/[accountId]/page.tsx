@@ -14,8 +14,8 @@ export default async function AccountScraperPage({
   if (isNaN(id)) notFound();
 
   const account = await dbGet(
-    `SELECT id, name, handle, scrape_enabled, last_scraped_at, last_scrape_status
-     FROM accounts WHERE id = ? AND platform = 'instagram'`,
+    `SELECT id, name, handle, platform, scrape_enabled, last_scraped_at, last_scrape_status
+     FROM accounts WHERE id = ?`,
     [id]
   );
   if (!account) notFound();

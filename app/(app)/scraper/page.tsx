@@ -9,8 +9,7 @@ export default async function ScraperPage() {
             a.last_scraped_at, a.last_scrape_status,
             (SELECT COUNT(*) FROM content_insight ci WHERE ci.account_id = a.id AND ci.scrape_enabled = 1) AS tracked_posts
      FROM accounts a
-     WHERE a.platform = 'instagram'
-     ORDER BY a.name`
+     ORDER BY a.platform, a.name`
   );
 
   return <ScraperClient accounts={JSON.parse(JSON.stringify(accounts))} />;

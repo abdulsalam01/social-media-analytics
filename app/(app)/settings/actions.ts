@@ -80,6 +80,30 @@ export async function resetAllData(confirmPhrase: string) {
   return { ok: true as const, cleared: before };
 }
 
+export async function clearScrapeLog(scope: "all" | "errors_only") {
+  const me = await requireRole(["admin"]);
+  const before = (await dbGet<{ total: number; errors: number }>(
+    `SELECT COUNT(*) AS total,
+            SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) AS errors
+     FROM scrape_log`
+  ))!;
+
+  if (scope === "all") {
+    await dbRun("DELETE FROM scrape_log");
+    await dbRun("DELETE FROM sqlite_sequence WHERE name = 'scrape_log'");
+  } else {
+    await dbRun("DELETE FROM scrape_log WHERE status = 'error'");
+  }
+
+  await auditLog(me.id, "clear_scrape_log", "system", undefined, { scope, before });
+
+  if (!isRemoteDb()) {
+    try { await dbExec("VACUUM"); } catch { /* ignore */ }
+  }
+
+  return { ok: true as const, cleared: before, scope };
+}
+
 export async function clearLogs(scope: "all" | "audit" | "login") {
   const me = await requireRole(["admin"]);
   const before = (await dbGet<{ audit: number; login: number }>(

@@ -1,20 +1,22 @@
 "use client";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Trash2, RotateCcw, Database } from "lucide-react";
-import { resetAllData, clearLogs } from "./actions";
+import { AlertTriangle, Trash2, RotateCcw, Database, ScanSearch } from "lucide-react";
+import { resetAllData, clearLogs, clearScrapeLog } from "./actions";
 import { useToast } from "@/components/Toast";
 import { fmtNum } from "@/lib/utils";
 
 type Stats = {
   accounts: number; profile: number; content: number; demographics: number;
   audit_log: number; login_attempts: number;
+  scrape_log: number; scrape_log_errors: number;
 };
 
 export default function DangerZone({ stats }: { stats: Stats }) {
   const [pending, start] = useTransition();
   const [phrase, setPhrase] = useState("");
   const [logScope, setLogScope] = useState<"all" | "audit" | "login">("all");
+  const [scrapeLogScope, setScrapeLogScope] = useState<"all" | "errors_only">("errors_only");
   const toast = useToast();
   const router = useRouter();
 
@@ -32,6 +34,19 @@ export default function DangerZone({ stats }: { stats: Stats }) {
       if (!res.ok) return toast("error", res.error);
       toast("success", "Semua data ter-reset. Sistem fresh.");
       setPhrase("");
+      router.refresh();
+    });
+  }
+
+  function onClearScrapeLog() {
+    const toDelete = scrapeLogScope === "all" ? stats.scrape_log : stats.scrape_log_errors;
+    if (toDelete === 0) return toast("error", "Tidak ada log scraping untuk dihapus.");
+    const label = scrapeLogScope === "all" ? `semua ${fmtNum(toDelete)} log scraping` : `${fmtNum(toDelete)} log error scraping`;
+    if (!confirm(`Bersihkan ${label}?`)) return;
+    start(async () => {
+      const res = await clearScrapeLog(scrapeLogScope);
+      if (!res.ok) return toast("error", "Gagal bersihkan scrape log");
+      toast("success", `Scrape log dibersihkan.`);
       router.refresh();
     });
   }
@@ -91,6 +106,56 @@ export default function DangerZone({ stats }: { stats: Stats }) {
                   className="btn-secondary !border-amber-300 !text-amber-800 hover:!bg-amber-50"
                 >
                   <Trash2 className="w-4 h-4" /> Bersihkan {logScope === "all" ? "Semua" : logScope === "audit" ? "Audit" : "Login"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Scrape log cleanup */}
+        <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-5">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-lg bg-brand-100 text-brand-700 grid place-items-center shrink-0">
+              <ScanSearch className="w-5 h-5" />
+            </div>
+            <div className="flex-1">
+              <div className="font-semibold text-slate-900">Bersihkan Log Scraping</div>
+              <div className="text-sm text-slate-600 mt-0.5">
+                Hapus riwayat scraping untuk mempercepat proses dan menjaga DB tetap ringkas.
+              </div>
+              <div className="mt-3 flex items-center gap-4 text-xs flex-wrap">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-brand-500" />
+                  <span>Total log: <b>{fmtNum(stats.scrape_log ?? 0)}</b></span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-red-500" />
+                  <span>Log error: <b>{fmtNum(stats.scrape_log_errors ?? 0)}</b></span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                  <span>Log sukses: <b>{fmtNum((stats.scrape_log ?? 0) - (stats.scrape_log_errors ?? 0))}</b></span>
+                </div>
+              </div>
+              <div className="mt-4 flex items-end gap-2 flex-wrap">
+                <div>
+                  <label className="label !text-xs">Pilih Cakupan</label>
+                  <select
+                    className="input !w-auto"
+                    value={scrapeLogScope}
+                    onChange={(e) => setScrapeLogScope(e.target.value as "all" | "errors_only")}
+                  >
+                    <option value="errors_only">Error Saja (Direkomendasikan)</option>
+                    <option value="all">Semua Log Scraping</option>
+                  </select>
+                </div>
+                <button
+                  onClick={onClearScrapeLog}
+                  disabled={pending || (stats.scrape_log ?? 0) === 0}
+                  className="btn-secondary !border-brand-300 !text-brand-800 hover:!bg-brand-50"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Bersihkan {scrapeLogScope === "errors_only" ? "Log Error" : "Semua Log"}
                 </button>
               </div>
             </div>

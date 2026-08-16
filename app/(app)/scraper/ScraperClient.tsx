@@ -288,11 +288,25 @@ function AccountRow({ a }: { a: AccountRow }) {
         )}
       >
         <td className="px-5 py-4">
-          <div className="font-medium text-slate-900">{a.name}</div>
-          <div className="text-xs text-slate-500 flex items-center gap-1">
+          <div className="flex items-center gap-2">
+            <span className={cn(
+              "text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide",
+              a.platform === "instagram"
+                ? "bg-pink-100 text-pink-700"
+                : "bg-slate-900 text-white"
+            )}>
+              {a.platform === "instagram" ? "IG" : "TT"}
+            </span>
+            <div className="font-medium text-slate-900">{a.name}</div>
+          </div>
+          <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5 ml-8">
             @{a.handle}
             <a
-              href={`https://www.instagram.com/${a.handle}/`}
+              href={
+                a.platform === "instagram"
+                  ? `https://www.instagram.com/${a.handle}/`
+                  : `https://www.tiktok.com/@${a.handle}`
+              }
               target="_blank"
               rel="noopener noreferrer"
               className="text-slate-400 hover:text-brand-600"
@@ -431,13 +445,27 @@ export default function ScraperClient({ accounts }: { accounts: AccountRow[] }) 
 
       <div className="card bg-amber-50 border-amber-200">
         <div className="card-bd">
-          <div className="text-sm font-medium text-amber-800 mb-2">Catatan Scraper Instagram</div>
-          <ul className="text-xs text-amber-700 space-y-1.5 list-disc pl-4">
-            <li>Data yang bisa diambil: follower, likes, komentar, caption.</li>
-            <li>Shares, saves, reach, impression, plays tetap harus diisi manual.</li>
-            <li>Instagram bisa memblokir request — semua error tercatat di log tiap akun.</li>
-            <li>Akun private tidak bisa di-scrape.</li>
-          </ul>
+          <div className="text-sm font-medium text-amber-800 mb-2">Catatan Scraper</div>
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div>
+              <div className="text-xs font-semibold text-pink-700 mb-1">Instagram</div>
+              <ul className="text-xs text-amber-700 space-y-1 list-disc pl-4">
+                <li>Data: follower, likes, komentar, caption.</li>
+                <li>Saves, reach, impression, plays — isi manual.</li>
+                <li>Instagram bisa blokir request — error tercatat di log.</li>
+                <li>Akun private tidak bisa di-scrape.</li>
+              </ul>
+            </div>
+            <div>
+              <div className="text-xs font-semibold text-slate-800 mb-1">TikTok</div>
+              <ul className="text-xs text-amber-700 space-y-1 list-disc pl-4">
+                <li>Data: follower, likes, komentar, plays, shares, caption.</li>
+                <li>Saves, reach, impression — isi manual.</li>
+                <li>TikTok pakai Cloudflare — scraping dari server bisa gagal.</li>
+                <li>Akun private tidak bisa di-scrape.</li>
+              </ul>
+            </div>
+          </div>
         </div>
       </div>
     </div>

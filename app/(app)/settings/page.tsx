@@ -12,14 +12,16 @@ export default async function SettingsPage() {
   const users = await dbAll<{ id: number; email: string; name: string; role: string; created_at: string }>(
     "SELECT id, email, name, role, created_at FROM users ORDER BY created_at ASC"
   );
-  const stats = (await dbGet<{ accounts: number; profile: number; content: number; demographics: number; audit_log: number; login_attempts: number }>(
+  const stats = (await dbGet<{ accounts: number; profile: number; content: number; demographics: number; audit_log: number; login_attempts: number; scrape_log: number; scrape_log_errors: number }>(
     `SELECT
-       (SELECT COUNT(*) FROM accounts)          AS accounts,
-       (SELECT COUNT(*) FROM profile_insight)   AS profile,
-       (SELECT COUNT(*) FROM content_insight)   AS content,
-       (SELECT COUNT(*) FROM demographics)      AS demographics,
-       (SELECT COUNT(*) FROM audit_log)         AS audit_log,
-       (SELECT COUNT(*) FROM login_attempts)    AS login_attempts`
+       (SELECT COUNT(*) FROM accounts)                                        AS accounts,
+       (SELECT COUNT(*) FROM profile_insight)                                 AS profile,
+       (SELECT COUNT(*) FROM content_insight)                                 AS content,
+       (SELECT COUNT(*) FROM demographics)                                    AS demographics,
+       (SELECT COUNT(*) FROM audit_log)                                       AS audit_log,
+       (SELECT COUNT(*) FROM login_attempts)                                  AS login_attempts,
+       (SELECT COUNT(*) FROM scrape_log)                                      AS scrape_log,
+       (SELECT COUNT(*) FROM scrape_log WHERE status = 'error')               AS scrape_log_errors`
   ))!;
   const auditRows = await dbAll<{ at: string; action: string; entity: string; entity_id: number | null; user_name: string | null }>(
     "SELECT a.at, a.action, a.entity, a.entity_id, u.name AS user_name FROM audit_log a LEFT JOIN users u ON u.id = a.user_id ORDER BY a.at DESC LIMIT 30"
@@ -99,7 +101,7 @@ export default async function SettingsPage() {
         </div>
       </div>
 
-      {me?.role === "admin" && <DangerZone stats={stats} />}
+      {me?.role === "admin" && <DangerZone stats={JSON.parse(JSON.stringify(stats))} />}
     </div>
   );
 }
