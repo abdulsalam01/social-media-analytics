@@ -420,7 +420,7 @@ export default function ScraperClient({ accounts }: { accounts: AccountRow[] }) 
         <div className="card-bd p-0">
           {accounts.length === 0 ? (
             <div className="px-5 py-10 text-center text-slate-500 text-sm">
-              Belum ada akun Instagram.{" "}
+              Belum ada akun Instagram atau TikTok.{" "}
               <Link href="/accounts/new" className="text-brand-600 hover:underline">Tambah akun dulu.</Link>
             </div>
           ) : (

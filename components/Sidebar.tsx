@@ -11,7 +11,7 @@ const nav = [
   { href: "/input", label: "Input Data", icon: PencilLine, hint: "Masukin data mingguan" },
   { href: "/compare", label: "Bandingkan Brand", icon: GitCompareArrows, hint: "Head-to-head brand" },
   { href: "/report", label: "Laporan", icon: FileBarChart2, hint: "Report mingguan + PDF" },
-  { href: "/scraper", label: "Pelacak Otomatis", icon: ScanSearch, hint: "Scraping Instagram harian" },
+  { href: "/scraper", label: "Pelacak Otomatis", icon: ScanSearch, hint: "Scraping IG & TikTok harian" },
   { href: "/settings", label: "Pengaturan", icon: Settings, hint: "Pengguna, backup" },
 ];
 
