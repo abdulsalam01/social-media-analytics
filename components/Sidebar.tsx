@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Users, PencilLine, FileBarChart2, Settings, HelpCircle, GitCompareArrows } from "lucide-react";
+import { LayoutDashboard, Users, PencilLine, FileBarChart2, Settings, HelpCircle, GitCompareArrows, ScanSearch } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 
@@ -11,6 +11,7 @@ const nav = [
   { href: "/input", label: "Input Data", icon: PencilLine, hint: "Masukin data mingguan" },
   { href: "/compare", label: "Bandingkan Brand", icon: GitCompareArrows, hint: "Head-to-head brand" },
   { href: "/report", label: "Laporan", icon: FileBarChart2, hint: "Report mingguan + PDF" },
+  { href: "/scraper", label: "Pelacak Otomatis", icon: ScanSearch, hint: "Scraping Instagram harian" },
   { href: "/settings", label: "Pengaturan", icon: Settings, hint: "Pengguna, backup" },
 ];
 

@@ -6,6 +6,16 @@ import type { Client } from "@libsql/client";
  * Auto-runs on cold start. Safe to run repeatedly.
  */
 const SCHEMA_STATEMENTS: string[] = [
+  `CREATE TABLE IF NOT EXISTS scrape_log (
+     id            INTEGER PRIMARY KEY AUTOINCREMENT,
+     account_id    INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+     scraped_at    TEXT NOT NULL DEFAULT (datetime('now')),
+     status        TEXT NOT NULL,
+     posts_found   INTEGER NOT NULL DEFAULT 0,
+     posts_updated INTEGER NOT NULL DEFAULT 0,
+     error         TEXT
+   )`,
+  `CREATE INDEX IF NOT EXISTS idx_scrape_log_account ON scrape_log(account_id, scraped_at DESC)`,
   `CREATE TABLE IF NOT EXISTS users (
      id            INTEGER PRIMARY KEY AUTOINCREMENT,
      email         TEXT NOT NULL UNIQUE,
@@ -122,6 +132,23 @@ export function ensureSchema(client: Client): Promise<void> {
       await client.execute("UPDATE profile_insight SET updated_at = created_at WHERE updated_at IS NULL OR updated_at = ''");
       await client.execute("UPDATE content_insight SET updated_at = created_at WHERE updated_at IS NULL OR updated_at = ''");
     } catch { /* ignore */ }
+
+    // Additive column migrations — ignore "duplicate column" if already applied
+    const alterStatements = [
+      "ALTER TABLE accounts ADD COLUMN scrape_enabled INTEGER NOT NULL DEFAULT 0",
+      "ALTER TABLE accounts ADD COLUMN scrape_url TEXT",
+      "ALTER TABLE accounts ADD COLUMN last_scraped_at TEXT",
+      "ALTER TABLE accounts ADD COLUMN last_scrape_status TEXT",
+      "ALTER TABLE content_insight ADD COLUMN scrape_enabled INTEGER NOT NULL DEFAULT 1",
+      "ALTER TABLE content_insight ADD COLUMN shortcode TEXT",
+    ];
+    for (const stmt of alterStatements) {
+      try {
+        await client.execute(stmt);
+      } catch (e: unknown) {
+        if (!(e instanceof Error) || !e.message.includes("duplicate column")) throw e;
+      }
+    }
   })();
   return migrationPromise;
 }
