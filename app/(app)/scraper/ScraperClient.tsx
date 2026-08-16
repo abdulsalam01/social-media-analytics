@@ -381,7 +381,7 @@ export default function ScraperClient({ accounts }: { accounts: AccountRow[] }) 
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Pelacak Otomatis</h1>
           <p className="text-sm text-slate-500">
-            Scraping harian Instagram publik — follower, likes, komentar.
+            Scraping harian Instagram &amp; TikTok — follower, likes, komentar, plays.
           </p>
         </div>
         <ScrapeAllButton />
