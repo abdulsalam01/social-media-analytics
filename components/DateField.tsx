@@ -2,27 +2,27 @@
 import { Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const MONTH_NAMES_ID = [
-  "Januari", "Februari", "Maret", "April", "Mei", "Juni",
-  "Juli", "Agustus", "September", "Oktober", "November", "Desember",
-];
-const DAY_NAMES_ID = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+const MONTH_SHORT_ID = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+const MONTH_LONG_ID = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+const DAY_SHORT_ID = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
 
-function formatIndoDate(iso: string): string {
-  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return "Belum dipilih";
+function chipPreview(iso: string): string {
+  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return "";
   const [y, m, d] = iso.split("-").map(Number);
   const dt = new Date(y, m - 1, d);
-  return `${DAY_NAMES_ID[dt.getDay()]}, ${d} ${MONTH_NAMES_ID[m - 1]} ${y}`;
+  return `${DAY_SHORT_ID[dt.getDay()]}, ${d} ${MONTH_SHORT_ID[m - 1]} ${String(y).slice(2)}`;
+}
+
+function fullPreview(iso: string): string {
+  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return "Belum dipilih";
+  const [y, m, d] = iso.split("-").map(Number);
+  return `${d} ${MONTH_LONG_ID[m - 1]} ${y}`;
 }
 
 /**
- * Enhanced date input with:
- * - Icon prefix
- * - Live "dd MMMM yyyy" preview label below
- * - Explicit format hint
- * - Prominent styling
- *
- * Uses native <input type="date"> under the hood — accepts ISO YYYY-MM-DD.
+ * Compact date input — Indonesian preview sits INLINE next to the label,
+ * so component height matches sibling text/number inputs in a grid row.
+ * Full ID date shown as tooltip on hover.
  */
 export default function DateField({
   label,
@@ -45,12 +45,28 @@ export default function DateField({
   compact?: boolean;
   className?: string;
 }) {
-  const preview = formatIndoDate(value);
-  const isValid = /^\d{4}-\d{2}-\d{2}$/.test(value);
+  const chip = chipPreview(value);
+  const isValid = chip !== "";
+  const tooltip = fullPreview(value);
 
   return (
     <div className={cn("w-full", className)}>
-      {label && <label className={cn("label", compact && "!text-xs")}>{label}</label>}
+      <div className="flex items-center justify-between gap-2 mb-1.5">
+        {label ? (
+          <label className={cn("label !mb-0", compact && "!text-xs")}>{label}</label>
+        ) : <span className="text-sm">&nbsp;</span>}
+        {isValid && (
+          <span
+            title={tooltip}
+            className={cn(
+              "rounded bg-brand-50 text-brand-700 border border-brand-100 font-medium tabular-nums leading-tight",
+              compact ? "text-[10px] px-1.5 py-0.5" : "text-[11px] px-2 py-0.5"
+            )}
+          >
+            {chip}
+          </span>
+        )}
+      </div>
       <div className="relative">
         <Calendar
           className={cn(
@@ -61,8 +77,9 @@ export default function DateField({
         />
         <input
           type="date"
+          title={tooltip}
           className={cn(
-            "input !pl-9 font-medium",
+            "input !pl-9 font-medium cursor-pointer",
             isValid ? "text-slate-900" : "text-slate-500",
             compact && "!py-1.5 !text-sm"
           )}
@@ -72,16 +89,6 @@ export default function DateField({
           min={min}
           max={max}
         />
-      </div>
-      <div className={cn(
-        "mt-1 flex items-center gap-1.5 text-[11px]",
-        isValid ? "text-brand-700" : "text-slate-400"
-      )}>
-        <span className={cn(
-          "inline-block w-1.5 h-1.5 rounded-full",
-          isValid ? "bg-brand-500" : "bg-slate-300"
-        )} />
-        <span className="font-medium">{preview}</span>
       </div>
       {hint && <div className="hint mt-0.5">{hint}</div>}
     </div>
