@@ -1,7 +1,6 @@
 "use client";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { weekStartOf, monthWindow, currentMonth } from "@/lib/dates";
 import DateField from "@/components/DateField";
@@ -78,8 +77,8 @@ export default function PeriodPicker({
       </div>
 
       {mode === "week" && (
-        <div className="flex items-end gap-1">
-          <button className="btn-secondary !px-2 mb-4" onClick={() => shiftWeek(-7)} disabled={pending}>◀</button>
+        <div className="flex items-center gap-1">
+          <button className="btn-secondary !px-2" onClick={() => shiftWeek(-7)} disabled={pending}>◀</button>
           <div className="min-w-[220px]">
             <DateField
               compact
@@ -87,40 +86,36 @@ export default function PeriodPicker({
               onChange={(v) => push({ mode: "week", week: weekStartOf(v) })}
             />
           </div>
-          <button className="btn-secondary !px-2 mb-4" onClick={() => shiftWeek(7)} disabled={pending}>▶</button>
+          <button className="btn-secondary !px-2" onClick={() => shiftWeek(7)} disabled={pending}>▶</button>
         </div>
       )}
 
       {mode === "month" && (
-        <div className="flex flex-col">
-          <select
-            className="input !w-auto font-medium"
-            value={month || currentMonth()}
-            onChange={(e) => push({ mode: "month", month: e.target.value })}
-            disabled={pending}
-          >
-            {months.map((m) => (
-              <option key={m.value} value={m.value}>{m.label}</option>
-            ))}
-          </select>
-          <div className="text-[11px] text-slate-400 mt-1">6 bulan sebelum &amp; sesudah bulan ini</div>
-        </div>
+        <select
+          className="input !w-auto font-medium"
+          value={month || currentMonth()}
+          onChange={(e) => push({ mode: "month", month: e.target.value })}
+          disabled={pending}
+          title="6 bulan sebelum & sesudah bulan ini"
+        >
+          {months.map((m) => (
+            <option key={m.value} value={m.value}>{m.label}</option>
+          ))}
+        </select>
       )}
 
       {mode === "range" && (
         <div className="flex items-end gap-2 flex-wrap">
-          <Calendar className="w-4 h-4 text-slate-400 mb-4" />
           <div className="min-w-[200px]">
             <DateField compact label="Dari" value={customFrom} onChange={setCustomFrom} />
           </div>
-          <span className="text-slate-400 mb-4">—</span>
           <div className="min-w-[200px]">
             <DateField compact label="Sampai" value={customTo} onChange={setCustomTo} />
           </div>
           <button
             onClick={() => push({ mode: "range", from: customFrom, to: customTo })}
             disabled={pending || !customFrom || !customTo}
-            className="btn-primary !py-1.5 mb-4"
+            className="btn-primary !py-1.5"
           >
             Terapkan
           </button>

@@ -2,19 +2,30 @@
 import { Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+const MONTH_SHORT_ID = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
 const MONTH_LONG_ID = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+const DAY_SHORT_ID = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
 const DAY_LONG_ID = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
 
+function shortPreview(iso: string): string {
+  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return "";
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(y, m - 1, d);
+  return `${DAY_SHORT_ID[dt.getDay()]}, ${d} ${MONTH_SHORT_ID[m - 1]} ${y}`;
+}
+
 function fullPreview(iso: string): string {
-  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return "Belum dipilih — klik untuk buka kalender";
+  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return "Belum dipilih";
   const [y, m, d] = iso.split("-").map(Number);
   const dt = new Date(y, m - 1, d);
   return `${DAY_LONG_ID[dt.getDay()]}, ${d} ${MONTH_LONG_ID[m - 1]} ${y}`;
 }
 
 /**
- * Date input with same footprint as plain <input> — zero layout impact.
- * Icon on left indicates picker. Full Indonesian date shown as hover tooltip.
+ * DateField — same footprint as plain <input>.
+ * Indonesian preview shown as tiny inline text next to the label (same line,
+ * smaller font — zero height impact). Full date on hover via title.
+ * When there's no label, preview goes into tooltip only.
  */
 export default function DateField({
   label,
@@ -38,11 +49,24 @@ export default function DateField({
   className?: string;
 }) {
   const isValid = /^\d{4}-\d{2}-\d{2}$/.test(value);
+  const chip = shortPreview(value);
   const tooltip = fullPreview(value);
 
   return (
     <div className={cn("w-full", className)}>
-      {label && <label className={cn("label", compact && "!text-xs")}>{label}</label>}
+      {label && (
+        <label className={cn("label", compact && "!text-xs")}>
+          {label}
+          {isValid && (
+            <span
+              className="ml-2 text-[10px] font-normal text-brand-600 tabular-nums"
+              title={tooltip}
+            >
+              · {chip}
+            </span>
+          )}
+        </label>
+      )}
       <div className="relative">
         <Calendar
           className={cn(

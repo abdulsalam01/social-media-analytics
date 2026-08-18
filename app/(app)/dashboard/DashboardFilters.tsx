@@ -171,7 +171,7 @@ export default function DashboardFilters({
             <div className="min-w-[200px]">
               <DateField compact label="Sampai Tanggal" value={customTo} onChange={setCustomTo} />
             </div>
-            <button onClick={applyCustom} disabled={pending || !customFrom || !customTo} className="btn-primary mb-4">
+            <button onClick={applyCustom} disabled={pending || !customFrom || !customTo} className="btn-primary">
               Terapkan
             </button>
           </div>

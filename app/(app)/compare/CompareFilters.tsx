@@ -155,7 +155,7 @@ export default function CompareFilters({
             <button
               onClick={() => pushParams({ range: "custom", from: localFrom, to: localTo })}
               disabled={pending || !localFrom || !localTo}
-              className="btn-primary mb-4"
+              className="btn-primary"
             >
               Terapkan
             </button>
