@@ -6,6 +6,7 @@ import { saveProfileInsight } from "./actions";
 import { useToast } from "@/components/Toast";
 import type { Account } from "@/lib/db";
 import { todayISO } from "@/lib/utils";
+import DateField from "@/components/DateField";
 
 export default function ProfileForm({ account }: { account: Account }) {
   const [date, setDate] = useState(todayISO());
@@ -47,10 +48,13 @@ export default function ProfileForm({ account }: { account: Account }) {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label className="label">Tanggal</label>
-          <input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} required />
-        </div>
+        <DateField
+          label="Tanggal"
+          value={date}
+          onChange={setDate}
+          required
+          hint="Pilih tanggal (bukan ketik manual)."
+        />
         <div>
           <label className="label">Followers Hari Ini</label>
           <input type="number" min="0" className="input" value={followers} onChange={(e) => setFollowers(e.target.value)} placeholder="Contoh: 1250" />

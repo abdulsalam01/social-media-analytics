@@ -5,6 +5,7 @@ import { Calendar, Check, Users2, Activity, Eye, TrendingUp, ChevronDown } from 
 import { cn } from "@/lib/utils";
 import type { Account } from "@/lib/db";
 import PlatformBadge from "@/components/PlatformBadge";
+import DateField from "@/components/DateField";
 
 type Range = "7d" | "30d" | "90d" | "custom";
 
@@ -148,13 +149,13 @@ export default function CompareFilters({
         </div>
 
         {range === "custom" && (
-          <div className="flex items-end gap-2 pt-3 border-t border-slate-100">
-            <div><label className="label !text-xs">Dari</label><input type="date" className="input" value={localFrom} onChange={(e) => setLocalFrom(e.target.value)} /></div>
-            <div><label className="label !text-xs">Sampai</label><input type="date" className="input" value={localTo} onChange={(e) => setLocalTo(e.target.value)} /></div>
+          <div className="flex items-end gap-2 pt-3 border-t border-slate-100 flex-wrap">
+            <div className="min-w-[200px]"><DateField compact label="Dari" value={localFrom} onChange={setLocalFrom} /></div>
+            <div className="min-w-[200px]"><DateField compact label="Sampai" value={localTo} onChange={setLocalTo} /></div>
             <button
               onClick={() => pushParams({ range: "custom", from: localFrom, to: localTo })}
               disabled={pending || !localFrom || !localTo}
-              className="btn-primary"
+              className="btn-primary mb-4"
             >
               Terapkan
             </button>

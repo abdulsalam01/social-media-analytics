@@ -6,6 +6,7 @@ import { Pencil, Trash2, ChevronLeft, ChevronRight, ExternalLink, Calendar, PenS
 import type { Account } from "@/lib/db";
 import { fmtDate, fmtNum, fmtPct, fmtRelative, fmtDateTime, cn } from "@/lib/utils";
 import { useToast } from "@/components/Toast";
+import DateField from "@/components/DateField";
 import {
   deleteProfileInsight, deleteContentInsight,
   updateProfileInsight, updateContentInsight,
@@ -17,7 +18,7 @@ type Profile = {
 };
 type Content = {
   id: number; post_date: string; title: string | null; link: string | null; likes: number; comments: number; shares: number; saves: number;
-  reach: number; plays: number; engagement: number; engagement_rate: number;
+  reposts: number; reach: number; plays: number; engagement: number; engagement_rate: number;
   profile_visit: number; follows: number; impression: number; created_at: string; updated_at: string;
 };
 
@@ -220,7 +221,7 @@ function EditProfileModal({ account, entry, isTT, onClose }: { account: Account;
     <Modal onClose={onClose} title="Edit Data Profil Harian">
       <form onSubmit={onSubmit} className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
-          <div><label className="label !text-xs">Tanggal</label><input type="date" className="input" value={date} onChange={(e) => setDate(e.target.value)} required /></div>
+          <DateField compact label="Tanggal" value={date} onChange={setDate} required />
           <div><label className="label !text-xs">Followers</label><input type="number" min="0" className="input" value={followers} onChange={(e) => setFollowers(e.target.value)} /></div>
           <div><label className="label !text-xs">{isTT ? "Video Views" : "Visit Per Day"}</label><input type="number" min="0" className="input" value={visit} onChange={(e) => setVisit(e.target.value)} /></div>
           <div><label className="label !text-xs">{isTT ? "Profile Views" : "Reach Per Day"}</label><input type="number" min="0" className="input" value={reach} onChange={(e) => setReach(e.target.value)} /></div>
@@ -332,6 +333,7 @@ function EditContentModal({ account, entry, isTT, onClose }: { account: Account;
     post_date: entry.post_date, title: entry.title || "", link: entry.link || "",
     likes: String(entry.likes), comments: String(entry.comments),
     shares: String(entry.shares), saves: String(entry.saves),
+    reposts: String(entry.reposts ?? 0),
     follows: String(entry.follows), reach: String(entry.reach),
     impression: String(entry.impression), plays: String(entry.plays),
     profile_visit: String(entry.profile_visit),
@@ -356,6 +358,7 @@ function EditContentModal({ account, entry, isTT, onClose }: { account: Account;
         comments: Number(f.comments || 0),
         shares: Number(f.shares || 0),
         saves: Number(f.saves || 0),
+        reposts: Number(f.reposts || 0),
         follows: Number(f.follows || 0),
         reach: Number(f.reach || 0),
         impression: Number(f.impression || 0),
@@ -372,13 +375,14 @@ function EditContentModal({ account, entry, isTT, onClose }: { account: Account;
     <Modal onClose={onClose} title="Edit Konten">
       <form onSubmit={onSubmit} className="space-y-4">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="col-span-2"><label className="label !text-xs">Tanggal Post</label><input type="date" className="input" value={f.post_date} onChange={(e) => up("post_date", e.target.value)} required /></div>
+          <div className="col-span-2"><DateField compact label="Tanggal Post" value={f.post_date} onChange={(v) => up("post_date", v)} required /></div>
           <div className="col-span-2"><label className="label !text-xs">Judul (opsional)</label><input className="input" value={f.title} onChange={(e) => up("title", e.target.value)} placeholder="Promo Ramadan Diskon 50%" maxLength={200} /></div>
           <div className="col-span-4"><label className="label !text-xs">Link</label><input className="input" value={f.link} onChange={(e) => up("link", e.target.value)} placeholder="https://..." /></div>
           <NumField label="Like" v={f.likes} on={(v) => up("likes", v)} />
           <NumField label="Comment" v={f.comments} on={(v) => up("comments", v)} />
           <NumField label="Share" v={f.shares} on={(v) => up("shares", v)} />
           <NumField label="Save" v={f.saves} on={(v) => up("saves", v)} />
+          <NumField label="Repost" v={f.reposts} on={(v) => up("reposts", v)} />
           {isTT ? (
             <NumField label="Plays" v={f.plays} on={(v) => up("plays", v)} />
           ) : (

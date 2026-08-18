@@ -47,3 +47,21 @@ export function recentMonths(n: number): { value: string; label: string }[] {
   }
   return out;
 }
+
+/**
+ * Symmetric month window: `before` months before current + current + `after` months after.
+ * Ordered oldest-first so newest appears at bottom of dropdown.
+ */
+export function monthWindow(before: number, after: number): { value: string; label: string }[] {
+  const short = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+  const now = new Date();
+  const out: { value: string; label: string }[] = [];
+  for (let i = -before; i <= after; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    out.push({
+      value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
+      label: `${short[d.getMonth()]} ${d.getFullYear()}`,
+    });
+  }
+  return out;
+}

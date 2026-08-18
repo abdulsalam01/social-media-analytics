@@ -3,7 +3,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { weekStartOf, recentMonths, currentMonth } from "@/lib/dates";
+import { weekStartOf, monthWindow, currentMonth } from "@/lib/dates";
+import DateField from "@/components/DateField";
 
 type Mode = "week" | "month" | "range";
 
@@ -22,7 +23,7 @@ export default function PeriodPicker({
   const [pending, start] = useTransition();
   const [customFrom, setCustomFrom] = useState(from);
   const [customTo, setCustomTo] = useState(to);
-  const months = recentMonths(24);
+  const months = monthWindow(6, 6);
 
   function push(patch: Record<string, string | null>) {
     const params = new URLSearchParams(sp.toString());
@@ -77,41 +78,49 @@ export default function PeriodPicker({
       </div>
 
       {mode === "week" && (
-        <div className="flex items-center gap-1">
-          <button className="btn-secondary !px-2" onClick={() => shiftWeek(-7)} disabled={pending}>◀</button>
-          <input
-            type="date"
-            className="input !w-auto"
-            value={week}
-            onChange={(e) => push({ mode: "week", week: weekStartOf(e.target.value) })}
-          />
-          <button className="btn-secondary !px-2" onClick={() => shiftWeek(7)} disabled={pending}>▶</button>
+        <div className="flex items-end gap-1">
+          <button className="btn-secondary !px-2 mb-4" onClick={() => shiftWeek(-7)} disabled={pending}>◀</button>
+          <div className="min-w-[220px]">
+            <DateField
+              compact
+              value={week}
+              onChange={(v) => push({ mode: "week", week: weekStartOf(v) })}
+            />
+          </div>
+          <button className="btn-secondary !px-2 mb-4" onClick={() => shiftWeek(7)} disabled={pending}>▶</button>
         </div>
       )}
 
       {mode === "month" && (
-        <select
-          className="input !w-auto"
-          value={month || currentMonth()}
-          onChange={(e) => push({ mode: "month", month: e.target.value })}
-          disabled={pending}
-        >
-          {months.map((m) => (
-            <option key={m.value} value={m.value}>{m.label}</option>
-          ))}
-        </select>
+        <div className="flex flex-col">
+          <select
+            className="input !w-auto font-medium"
+            value={month || currentMonth()}
+            onChange={(e) => push({ mode: "month", month: e.target.value })}
+            disabled={pending}
+          >
+            {months.map((m) => (
+              <option key={m.value} value={m.value}>{m.label}</option>
+            ))}
+          </select>
+          <div className="text-[11px] text-slate-400 mt-1">6 bulan sebelum &amp; sesudah bulan ini</div>
+        </div>
       )}
 
       {mode === "range" && (
-        <div className="flex items-center gap-1">
-          <Calendar className="w-4 h-4 text-slate-400" />
-          <input type="date" className="input !w-auto" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} />
-          <span className="text-slate-400">—</span>
-          <input type="date" className="input !w-auto" value={customTo} onChange={(e) => setCustomTo(e.target.value)} />
+        <div className="flex items-end gap-2 flex-wrap">
+          <Calendar className="w-4 h-4 text-slate-400 mb-4" />
+          <div className="min-w-[200px]">
+            <DateField compact label="Dari" value={customFrom} onChange={setCustomFrom} />
+          </div>
+          <span className="text-slate-400 mb-4">—</span>
+          <div className="min-w-[200px]">
+            <DateField compact label="Sampai" value={customTo} onChange={setCustomTo} />
+          </div>
           <button
             onClick={() => push({ mode: "range", from: customFrom, to: customTo })}
             disabled={pending || !customFrom || !customTo}
-            className="btn-primary !py-1.5"
+            className="btn-primary !py-1.5 mb-4"
           >
             Terapkan
           </button>

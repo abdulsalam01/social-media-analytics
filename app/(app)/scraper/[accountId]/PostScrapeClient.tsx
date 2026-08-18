@@ -146,6 +146,55 @@ function PostScrapeToggle({ postId, enabled }: { postId: number; enabled: boolea
   );
 }
 
+function PostScrapeNowButton({ postId, disabled }: { postId: number; disabled?: boolean }) {
+  const [state, setState] = useState<"idle" | "loading" | "ok" | "error">("idle");
+  const [msg, setMsg] = useState<string | null>(null);
+  const router = useRouter();
+
+  async function trigger() {
+    setState("loading");
+    setMsg(null);
+    try {
+      const res = await fetch("/api/scrape/post", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ post_id: postId }),
+      });
+      const json = await res.json();
+      if (json.ok) {
+        setState("ok");
+        router.refresh();
+      } else {
+        setState("error");
+        setMsg(json.error ?? "Gagal");
+      }
+    } catch {
+      setState("error");
+      setMsg("Network error");
+    }
+    setTimeout(() => { setState("idle"); setMsg(null); }, 5000);
+  }
+
+  return (
+    <button
+      onClick={trigger}
+      disabled={state === "loading" || disabled}
+      title={msg ?? "Scrape post ini saja"}
+      className={cn(
+        "btn-ghost !py-1 !px-2 text-xs flex items-center gap-1",
+        state === "ok" && "!text-emerald-600",
+        state === "error" && "!text-red-600"
+      )}
+    >
+      <RefreshCw className={cn("w-3 h-3", state === "loading" && "animate-spin")} />
+      {state === "idle" && "Scrape"}
+      {state === "loading" && "..."}
+      {state === "ok" && "OK"}
+      {state === "error" && "Gagal"}
+    </button>
+  );
+}
+
 function ScrapeNowButton({ accountId }: { accountId: number }) {
   const [state, setState] = useState<"idle" | "loading" | "ok" | "error">("idle");
   const router = useRouter();
@@ -269,6 +318,7 @@ export default function PostScrapeClient({
                       <PostScrapeToggle postId={p.id} enabled={p.scrape_enabled === 1} />
                     </td>
                     <td className="px-5 py-3 text-right flex items-center justify-end gap-2">
+                      <PostScrapeNowButton postId={p.id} disabled={p.scrape_enabled === 0} />
                       <Link href={`/content/${p.id}`} className="btn-ghost !py-1 !px-2 text-xs">Detail</Link>
                       {p.link && (
                         <a

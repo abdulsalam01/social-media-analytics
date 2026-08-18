@@ -6,6 +6,7 @@ import Link from "next/link";
 import type { Account, ContentInsight } from "@/lib/db";
 import { updateContentInsight, deleteContentInsight } from "@/app/(app)/input/actions";
 import { useToast } from "@/components/Toast";
+import DateField from "@/components/DateField";
 
 export default function DetailActions({
   content, account, backHref,
@@ -28,6 +29,7 @@ export default function DetailActions({
     comments: String(content.comments),
     shares: String(content.shares),
     saves: String(content.saves),
+    reposts: String(content.reposts ?? 0),
     follows: String(content.follows),
     reach: String(content.reach),
     impression: String(content.impression),
@@ -51,6 +53,7 @@ export default function DetailActions({
         comments: Number(f.comments || 0),
         shares: Number(f.shares || 0),
         saves: Number(f.saves || 0),
+        reposts: Number(f.reposts || 0),
         follows: Number(f.follows || 0),
         reach: Number(f.reach || 0),
         impression: Number(f.impression || 0),
@@ -95,8 +98,7 @@ export default function DetailActions({
           <form onSubmit={onSave} className="space-y-4">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="col-span-2">
-                <label className="label !text-xs">Tanggal Post</label>
-                <input type="date" className="input" value={f.post_date} onChange={(e) => up("post_date", e.target.value)} required />
+                <DateField compact label="Tanggal Post" value={f.post_date} onChange={(v) => up("post_date", v)} required />
               </div>
               <div className="col-span-2">
                 <label className="label !text-xs">Judul (opsional)</label>
@@ -110,6 +112,7 @@ export default function DetailActions({
               <NumField label="Comment" v={f.comments} on={(v) => up("comments", v)} />
               <NumField label="Share" v={f.shares} on={(v) => up("shares", v)} />
               <NumField label="Save" v={f.saves} on={(v) => up("saves", v)} />
+              <NumField label="Repost" v={f.reposts} on={(v) => up("reposts", v)} />
               {isTT ? (
                 <NumField label="Plays" v={f.plays} on={(v) => up("plays", v)} />
               ) : (

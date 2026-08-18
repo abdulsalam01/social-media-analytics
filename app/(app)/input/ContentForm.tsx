@@ -6,6 +6,7 @@ import { saveContentRows } from "./actions";
 import { useToast } from "@/components/Toast";
 import type { Account } from "@/lib/db";
 import { todayISO } from "@/lib/utils";
+import DateField from "@/components/DateField";
 
 type Row = {
   post_date: string;
@@ -16,6 +17,7 @@ type Row = {
   comments: string;
   shares: string;
   saves: string;
+  reposts: string;
   follows: string;
   reach: string;
   impression: string;
@@ -31,6 +33,7 @@ const emptyRow = (): Row => ({
   comments: "",
   shares: "",
   saves: "",
+  reposts: "",
   follows: "",
   reach: "",
   impression: "",
@@ -67,6 +70,7 @@ export default function ContentForm({ account }: { account: Account }) {
         comments: Number(r.comments || 0),
         shares: Number(r.shares || 0),
         saves: Number(r.saves || 0),
+        reposts: Number(r.reposts || 0),
         follows: Number(r.follows || 0),
         reach: Number(r.reach || 0),
         impression: Number(r.impression || 0),
@@ -101,10 +105,13 @@ export default function ContentForm({ account }: { account: Account }) {
               )}
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              <div>
-                <label className="label !text-xs">Tanggal Post</label>
-                <input type="date" className="input" value={r.post_date} onChange={(e) => updateRow(i, { post_date: e.target.value })} required />
-              </div>
+              <DateField
+                compact
+                label="Tanggal Post"
+                value={r.post_date}
+                onChange={(v) => updateRow(i, { post_date: v })}
+                required
+              />
               <div className="lg:col-span-3">
                 <label className="label !text-xs">Judul Konten <span className="text-slate-400 font-normal">(opsional, buat gampang dilacak)</span></label>
                 <input className="input" value={r.title} onChange={(e) => updateRow(i, { title: e.target.value })} placeholder="Contoh: Promo Ramadan Diskon 50%" maxLength={200} />
@@ -117,6 +124,7 @@ export default function ContentForm({ account }: { account: Account }) {
               <NumField label="Comment" value={r.comments} onChange={(v) => updateRow(i, { comments: v })} />
               <NumField label="Share" value={r.shares} onChange={(v) => updateRow(i, { shares: v })} />
               <NumField label="Save" value={r.saves} onChange={(v) => updateRow(i, { saves: v })} />
+              <NumField label="Repost" value={r.reposts} onChange={(v) => updateRow(i, { reposts: v })} />
               {isTT ? (
                 <NumField label="Play (Video Plays)" value={r.plays} onChange={(v) => updateRow(i, { plays: v })} />
               ) : (

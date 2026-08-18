@@ -344,6 +344,113 @@ export async function runScrapeForAccount(
   return { account_id: accountId, status: "ok", posts_found: posts.length, posts_updated: postsUpdated };
 }
 
+export interface ScrapePostResult {
+  post_id: number;
+  status: "ok" | "error";
+  matched: boolean;
+  error?: string;
+  data?: { likes: number; comments: number; plays?: number; shares?: number };
+}
+
+/**
+ * Extract shortcode (Instagram) or video ID (TikTok) from a post URL.
+ * IG: https://www.instagram.com/p/{shortcode}/ or /reel/{shortcode}/
+ * TT: https://www.tiktok.com/@{handle}/video/{id}
+ */
+export function extractPostIdFromUrl(url: string): { platform: "instagram" | "tiktok"; id: string; handle?: string } | null {
+  const ig = url.match(/instagram\.com\/(?:p|reel)\/([A-Za-z0-9_-]+)/);
+  if (ig) return { platform: "instagram", id: ig[1] };
+  const tt = url.match(/tiktok\.com\/@([A-Za-z0-9_.-]+)\/video\/(\d+)/);
+  if (tt) return { platform: "tiktok", id: tt[2], handle: tt[1] };
+  return null;
+}
+
+/**
+ * Scrape a single content_insight row by its stored link/shortcode.
+ * Strategy: fetch the profile of the owning account, filter recent posts by shortcode.
+ * Works only if the post is within the profile's recent 12 posts (Instagram API limit).
+ */
+export async function runScrapeForPost(postId: number, userId?: number): Promise<ScrapePostResult> {
+  const row = await dbGet<{
+    id: number;
+    account_id: number;
+    shortcode: string | null;
+    link: string | null;
+    scrape_enabled: number;
+  }>(
+    "SELECT id, account_id, shortcode, link, scrape_enabled FROM content_insight WHERE id = ?",
+    [postId]
+  );
+
+  if (!row) return { post_id: postId, status: "error", matched: false, error: "Post not found" };
+  if (row.scrape_enabled === 0) return { post_id: postId, status: "error", matched: false, error: "Scraping disabled for this post" };
+
+  const account = await dbGet<AccountRow>(
+    "SELECT id, handle, platform, scrape_url FROM accounts WHERE id = ?",
+    [row.account_id]
+  );
+  if (!account) return { post_id: postId, status: "error", matched: false, error: "Account not found" };
+
+  // Determine shortcode: use stored shortcode, or extract from link
+  let shortcode = row.shortcode;
+  if (!shortcode && row.link) {
+    const extracted = extractPostIdFromUrl(row.link);
+    if (extracted) shortcode = extracted.id;
+  }
+  if (!shortcode) {
+    return { post_id: postId, status: "error", matched: false, error: "Cannot determine post ID — link or shortcode missing" };
+  }
+
+  const result = account.platform === "tiktok"
+    ? await scrapeTikTokProfile(account.handle)
+    : await scrapeInstagramProfile(account.handle);
+
+  if (!result.ok || !result.posts) {
+    return { post_id: postId, status: "error", matched: false, error: result.error ?? "Scrape failed" };
+  }
+
+  const match = result.posts.find((p) => p.shortcode === shortcode);
+  if (!match) {
+    return {
+      post_id: postId,
+      status: "error",
+      matched: false,
+      error: "Post not in recent 12 — too old to scrape without direct API access",
+    };
+  }
+
+  const engagement = match.likes + match.comments;
+  const denom = (match.plays ?? 0) > 0 ? match.plays! : (result.followers || 1);
+  const rate = engagement > 0 ? engagement / denom : 0;
+
+  await dbRun(
+    `UPDATE content_insight
+     SET likes = ?, comments = ?,
+         plays = CASE WHEN ? > 0 THEN ? ELSE plays END,
+         shares = CASE WHEN ? > 0 THEN ? ELSE shares END,
+         engagement = ?, engagement_rate = ?,
+         shortcode = ?, updated_at = datetime('now')
+     WHERE id = ?`,
+    [
+      match.likes, match.comments,
+      match.plays ?? 0, match.plays ?? 0,
+      match.shares ?? 0, match.shares ?? 0,
+      engagement, rate, match.shortcode, postId,
+    ]
+  );
+
+  if (userId) {
+    await auditLog(userId, "scrape_post", "content_insight", postId, { shortcode });
+  }
+
+  return {
+    post_id: postId,
+    status: "ok",
+    matched: true,
+    data: { likes: match.likes, comments: match.comments, plays: match.plays, shares: match.shares },
+  };
+}
+
 export async function runScrapeAll(userId?: number): Promise<ScrapeAccountResult[]> {
   const accounts = await dbAll<{ id: number }>(
     "SELECT id FROM accounts WHERE scrape_enabled = 1 AND platform IN ('instagram','tiktok')"

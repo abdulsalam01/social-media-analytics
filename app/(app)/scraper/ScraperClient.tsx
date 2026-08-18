@@ -3,11 +3,11 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   RefreshCw, ExternalLink, ChevronRight, ChevronDown,
-  CheckCircle2, XCircle, Clock, AlertTriangle,
+  CheckCircle2, XCircle, Clock, AlertTriangle, LinkIcon, Plus,
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { toggleAccountScrape, getScrapeLogs } from "./actions";
+import { toggleAccountScrape, getScrapeLogs, addTrackedPostUrl } from "./actions";
 
 type AccountRow = {
   id: number;
@@ -370,6 +370,122 @@ function AccountRow({ a }: { a: AccountRow }) {
   );
 }
 
+function TrackUrlPanel({ accounts }: { accounts: AccountRow[] }) {
+  const [url, setUrl] = useState("");
+  const [accountId, setAccountId] = useState<number>(accounts[0]?.id ?? 0);
+  const [title, setTitle] = useState("");
+  const [state, setState] = useState<{ kind: "idle" | "loading" | "ok" | "error"; msg?: string; postId?: number }>({ kind: "idle" });
+  const router = useRouter();
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!url || !accountId) return;
+    setState({ kind: "loading" });
+    const res = await addTrackedPostUrl({ url, account_id: accountId, title: title || undefined });
+    if (res.ok) {
+      setState({
+        kind: "ok",
+        msg: res.duplicate
+          ? "URL sudah dilacak — data di-refresh."
+          : res.matched
+            ? "Post ditambah + berhasil scrape metrics."
+            : "Post ditambah tapi belum ketemu di scrape (mungkin terlalu lama).",
+        postId: res.post_id,
+      });
+      setUrl("");
+      setTitle("");
+      router.refresh();
+    } else {
+      setState({ kind: "error", msg: res.error });
+    }
+  }
+
+  const platform = url.match(/instagram\.com/) ? "instagram" : url.match(/tiktok\.com/) ? "tiktok" : null;
+  const compatibleAccounts = platform ? accounts.filter((a) => a.platform === platform) : accounts;
+
+  return (
+    <div className="card">
+      <div className="card-hd">
+        <div className="flex items-center gap-2">
+          <LinkIcon className="w-4 h-4 text-brand-600" />
+          <span className="font-semibold">Lacak Post Individual</span>
+        </div>
+        <span className="text-xs text-slate-500">Paste URL post Instagram atau TikTok</span>
+      </div>
+      <div className="card-bd">
+        <form onSubmit={submit} className="grid grid-cols-1 md:grid-cols-12 gap-3">
+          <div className="md:col-span-6">
+            <label className="label !text-xs">URL Post</label>
+            <input
+              className="input"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://www.instagram.com/p/... atau https://www.tiktok.com/@user/video/..."
+              required
+            />
+          </div>
+          <div className="md:col-span-3">
+            <label className="label !text-xs">Akun {platform && <span className="text-brand-600">({platform})</span>}</label>
+            <select
+              className="input"
+              value={accountId}
+              onChange={(e) => setAccountId(Number(e.target.value))}
+              required
+            >
+              {compatibleAccounts.length === 0 && <option value="">Tidak ada akun cocok</option>}
+              {compatibleAccounts.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.platform === "instagram" ? "IG" : "TT"} · {a.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="md:col-span-3">
+            <label className="label !text-xs">Judul (opsional)</label>
+            <input
+              className="input"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Contoh: Promo Ramadan"
+              maxLength={200}
+            />
+          </div>
+          <div className="md:col-span-12">
+            <button
+              type="submit"
+              disabled={state.kind === "loading" || !url || !accountId || compatibleAccounts.length === 0}
+              className="btn-primary flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              {state.kind === "loading" ? "Memproses…" : "Lacak + Scrape Sekarang"}
+            </button>
+          </div>
+        </form>
+
+        {state.kind === "ok" && state.msg && (
+          <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 flex items-start gap-2">
+            <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              {state.msg}
+              {state.postId && (
+                <Link href={`/content/${state.postId}`} className="ml-2 underline font-medium">
+                  Lihat detail
+                </Link>
+              )}
+            </div>
+          </div>
+        )}
+        {state.kind === "error" && state.msg && (
+          <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 flex items-start gap-2">
+            <XCircle className="w-4 h-4 shrink-0 mt-0.5" />
+            <div>{state.msg}</div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function ScraperClient({ accounts }: { accounts: AccountRow[] }) {
   const activeCount = accounts.filter((a) => a.scrape_enabled).length;
   const trackedPosts = accounts.reduce((s, a) => s + (a.tracked_posts ?? 0), 0);
@@ -442,6 +558,8 @@ export default function ScraperClient({ accounts }: { accounts: AccountRow[] }) 
           )}
         </div>
       </div>
+
+      <TrackUrlPanel accounts={accounts} />
 
       <div className="card bg-amber-50 border-amber-200">
         <div className="card-bd">

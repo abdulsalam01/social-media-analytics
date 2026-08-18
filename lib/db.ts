@@ -175,6 +175,7 @@ export type ContentInsight = {
   comments: number;
   shares: number;
   saves: number;
+  reposts: number;
   follows: number;
   reach: number;
   impression: number;

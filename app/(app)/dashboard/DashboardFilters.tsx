@@ -3,7 +3,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Filter, Printer, RotateCcw, Calendar, ArrowDownWideNarrow, Link2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { recentMonths, currentMonth } from "@/lib/dates";
+import { monthWindow, currentMonth } from "@/lib/dates";
+import DateField from "@/components/DateField";
 
 type Range = "7d" | "30d" | "90d" | "month" | "custom";
 type SortBy = "engagement" | "reach" | "likes" | "comments" | "shares" | "saves" | "rate" | "date";
@@ -87,7 +88,7 @@ export default function DashboardFilters({
     pushParams({ range: "month", month: m, from: null, to: null });
   }
 
-  const months = recentMonths(24);
+  const months = monthWindow(6, 6);
 
   function applyContentFilters() {
     pushParams({
@@ -164,15 +165,13 @@ export default function DashboardFilters({
 
         {range === "custom" && (
           <div className="flex items-end gap-2 flex-wrap">
-            <div>
-              <label className="label !text-xs">Dari Tanggal</label>
-              <input type="date" className="input" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} />
+            <div className="min-w-[200px]">
+              <DateField compact label="Dari Tanggal" value={customFrom} onChange={setCustomFrom} />
             </div>
-            <div>
-              <label className="label !text-xs">Sampai Tanggal</label>
-              <input type="date" className="input" value={customTo} onChange={(e) => setCustomTo(e.target.value)} />
+            <div className="min-w-[200px]">
+              <DateField compact label="Sampai Tanggal" value={customTo} onChange={setCustomTo} />
             </div>
-            <button onClick={applyCustom} disabled={pending || !customFrom || !customTo} className="btn-primary">
+            <button onClick={applyCustom} disabled={pending || !customFrom || !customTo} className="btn-primary mb-4">
               Terapkan
             </button>
           </div>

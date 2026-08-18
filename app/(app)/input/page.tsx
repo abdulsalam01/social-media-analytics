@@ -54,10 +54,10 @@ export default async function InputPage({
 
   const contentEntries = await dbAll<{
     id: number; post_date: string; title: string | null; link: string | null; likes: number; comments: number; shares: number; saves: number;
-    reach: number; plays: number; engagement: number; engagement_rate: number;
+    reposts: number; reach: number; plays: number; engagement: number; engagement_rate: number;
     profile_visit: number; follows: number; impression: number; created_at: string; updated_at: string;
   }>(
-    `SELECT id, post_date, title, link, likes, comments, shares, saves, reach, plays, engagement, engagement_rate, profile_visit, follows, impression, created_at, updated_at
+    `SELECT id, post_date, title, link, likes, comments, shares, saves, reposts, reach, plays, engagement, engagement_rate, profile_visit, follows, impression, created_at, updated_at
      FROM content_insight WHERE account_id = ?
      ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`,
     [account.id, PAGE_SIZE, contentOffset]

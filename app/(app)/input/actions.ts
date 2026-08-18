@@ -50,6 +50,7 @@ const ContentRowSchema = z.object({
   comments: z.number().int().min(0),
   shares: z.number().int().min(0),
   saves: z.number().int().min(0),
+  reposts: z.number().int().min(0).default(0),
   follows: z.number().int().min(0),
   reach: z.number().int().min(0),
   impression: z.number().int().min(0),
@@ -63,15 +64,15 @@ export async function saveContentRows(input: unknown) {
 
   await dbTx(async (tx) => {
     for (const r of parsed.data) {
-      const engagement = r.likes + r.comments + r.shares + r.saves;
+      const engagement = r.likes + r.comments + r.shares + r.saves + r.reposts;
       const denom = r.reach > 0 ? r.reach : r.plays;
       const rate = denom > 0 ? engagement / denom : 0;
       await txRun(tx,
         `INSERT INTO content_insight
-         (account_id, post_date, title, link, profile_visit, likes, comments, shares, saves, follows, reach, impression, plays, engagement, engagement_rate, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+         (account_id, post_date, title, link, profile_visit, likes, comments, shares, saves, reposts, follows, reach, impression, plays, engagement, engagement_rate, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
         [r.account_id, r.post_date, r.title ?? null, r.link, r.profile_visit, r.likes, r.comments,
-         r.shares, r.saves, r.follows, r.reach, r.impression, r.plays, engagement, rate]
+         r.shares, r.saves, r.reposts, r.follows, r.reach, r.impression, r.plays, engagement, rate]
       );
     }
   });
@@ -120,17 +121,17 @@ export async function updateContentInsight(input: unknown) {
   const p = ContentUpdateSchema.safeParse(input);
   if (!p.success) return { ok: false as const, error: "Data konten tidak valid" };
   const r = p.data;
-  const engagement = r.likes + r.comments + r.shares + r.saves;
+  const engagement = r.likes + r.comments + r.shares + r.saves + r.reposts;
   const denom = r.reach > 0 ? r.reach : r.plays;
   const rate = denom > 0 ? engagement / denom : 0;
   const res = await dbRun(
     `UPDATE content_insight SET
        post_date = ?, title = ?, link = ?, profile_visit = ?, likes = ?, comments = ?,
-       shares = ?, saves = ?, follows = ?, reach = ?, impression = ?, plays = ?,
+       shares = ?, saves = ?, reposts = ?, follows = ?, reach = ?, impression = ?, plays = ?,
        engagement = ?, engagement_rate = ?, updated_at = datetime('now')
      WHERE id = ? AND account_id = ?`,
     [r.post_date, r.title ?? null, r.link, r.profile_visit, r.likes, r.comments,
-     r.shares, r.saves, r.follows, r.reach, r.impression, r.plays,
+     r.shares, r.saves, r.reposts, r.follows, r.reach, r.impression, r.plays,
      engagement, rate, r.id, r.account_id]
   );
   if (res.changes === 0) return { ok: false as const, error: "Data tidak ditemukan" };
