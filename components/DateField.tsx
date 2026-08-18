@@ -2,27 +2,19 @@
 import { Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const MONTH_SHORT_ID = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
 const MONTH_LONG_ID = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
-const DAY_SHORT_ID = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
-
-function chipPreview(iso: string): string {
-  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return "";
-  const [y, m, d] = iso.split("-").map(Number);
-  const dt = new Date(y, m - 1, d);
-  return `${DAY_SHORT_ID[dt.getDay()]}, ${d} ${MONTH_SHORT_ID[m - 1]} ${String(y).slice(2)}`;
-}
+const DAY_LONG_ID = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
 
 function fullPreview(iso: string): string {
-  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return "Belum dipilih";
+  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return "Belum dipilih — klik untuk buka kalender";
   const [y, m, d] = iso.split("-").map(Number);
-  return `${d} ${MONTH_LONG_ID[m - 1]} ${y}`;
+  const dt = new Date(y, m - 1, d);
+  return `${DAY_LONG_ID[dt.getDay()]}, ${d} ${MONTH_LONG_ID[m - 1]} ${y}`;
 }
 
 /**
- * Compact date input — Indonesian preview sits INLINE next to the label,
- * so component height matches sibling text/number inputs in a grid row.
- * Full ID date shown as tooltip on hover.
+ * Date input with same footprint as plain <input> — zero layout impact.
+ * Icon on left indicates picker. Full Indonesian date shown as hover tooltip.
  */
 export default function DateField({
   label,
@@ -45,28 +37,12 @@ export default function DateField({
   compact?: boolean;
   className?: string;
 }) {
-  const chip = chipPreview(value);
-  const isValid = chip !== "";
+  const isValid = /^\d{4}-\d{2}-\d{2}$/.test(value);
   const tooltip = fullPreview(value);
 
   return (
     <div className={cn("w-full", className)}>
-      <div className="flex items-center justify-between gap-2 mb-1.5">
-        {label ? (
-          <label className={cn("label !mb-0", compact && "!text-xs")}>{label}</label>
-        ) : <span className="text-sm">&nbsp;</span>}
-        {isValid && (
-          <span
-            title={tooltip}
-            className={cn(
-              "rounded bg-brand-50 text-brand-700 border border-brand-100 font-medium tabular-nums leading-tight",
-              compact ? "text-[10px] px-1.5 py-0.5" : "text-[11px] px-2 py-0.5"
-            )}
-          >
-            {chip}
-          </span>
-        )}
-      </div>
+      {label && <label className={cn("label", compact && "!text-xs")}>{label}</label>}
       <div className="relative">
         <Calendar
           className={cn(
@@ -79,8 +55,8 @@ export default function DateField({
           type="date"
           title={tooltip}
           className={cn(
-            "input !pl-9 font-medium cursor-pointer",
-            isValid ? "text-slate-900" : "text-slate-500",
+            "input !pl-9 cursor-pointer",
+            isValid ? "text-slate-900 font-medium" : "text-slate-500",
             compact && "!py-1.5 !text-sm"
           )}
           value={value}
@@ -90,7 +66,7 @@ export default function DateField({
           max={max}
         />
       </div>
-      {hint && <div className="hint mt-0.5">{hint}</div>}
+      {hint && <div className="hint">{hint}</div>}
     </div>
   );
 }
