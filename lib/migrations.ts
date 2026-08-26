@@ -142,6 +142,7 @@ export function ensureSchema(client: Client): Promise<void> {
       "ALTER TABLE content_insight ADD COLUMN scrape_enabled INTEGER NOT NULL DEFAULT 1",
       "ALTER TABLE content_insight ADD COLUMN shortcode TEXT",
       "ALTER TABLE content_insight ADD COLUMN reposts INTEGER NOT NULL DEFAULT 0",
+      "ALTER TABLE profile_insight ADD COLUMN new_followers INTEGER NOT NULL DEFAULT 0",
     ];
     for (const stmt of alterStatements) {
       try {

@@ -39,9 +39,9 @@ export default async function InputPage({
 
   const profileEntries = await dbAll<{
     id: number; date: string; visit_per_day: number; reach_per_day: number;
-    followers: number; followers_growth: number; created_at: string; updated_at: string;
+    followers: number; followers_growth: number; new_followers: number; created_at: string; updated_at: string;
   }>(
-    `SELECT id, date, visit_per_day, reach_per_day, followers, followers_growth, created_at, updated_at
+    `SELECT id, date, visit_per_day, reach_per_day, followers, followers_growth, new_followers, created_at, updated_at
      FROM profile_insight WHERE account_id = ?
      ORDER BY date DESC, id DESC LIMIT ? OFFSET ?`,
     [account.id, PAGE_SIZE, profileOffset]

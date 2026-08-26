@@ -10,13 +10,14 @@ const ProfileSchema = z.object({
   visit_per_day: z.number().int().min(0),
   reach_per_day: z.number().int().min(0),
   followers: z.number().int().min(0),
+  new_followers: z.number().int().min(0).default(0),
 });
 
 export async function saveProfileInsight(input: unknown) {
   const user = await requireRole(["admin", "editor"]);
   const p = ProfileSchema.safeParse(input);
   if (!p.success) return { ok: false as const, error: p.error.issues[0]?.message ?? "Data tidak valid" };
-  const { account_id, date, visit_per_day, reach_per_day, followers } = p.data;
+  const { account_id, date, visit_per_day, reach_per_day, followers, new_followers } = p.data;
 
   const prev = await dbGet<{ followers: number }>(
     "SELECT followers FROM profile_insight WHERE account_id = ? AND date < ? ORDER BY date DESC LIMIT 1",
@@ -25,15 +26,16 @@ export async function saveProfileInsight(input: unknown) {
   const growth = prev ? followers - prev.followers : 0;
 
   await dbRun(
-    `INSERT INTO profile_insight (account_id, date, visit_per_day, reach_per_day, followers, followers_growth, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+    `INSERT INTO profile_insight (account_id, date, visit_per_day, reach_per_day, followers, followers_growth, new_followers, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
      ON CONFLICT(account_id, date) DO UPDATE SET
        visit_per_day = excluded.visit_per_day,
        reach_per_day = excluded.reach_per_day,
        followers = excluded.followers,
        followers_growth = excluded.followers_growth,
+       new_followers = excluded.new_followers,
        updated_at = datetime('now')`,
-    [account_id, date, visit_per_day, reach_per_day, followers, growth]
+    [account_id, date, visit_per_day, reach_per_day, followers, growth, new_followers]
   );
 
   await auditLog(user.id, "upsert", "profile_insight", account_id, { date });
@@ -87,7 +89,7 @@ export async function updateProfileInsight(input: unknown) {
   const user = await requireRole(["admin", "editor"]);
   const p = ProfileUpdateSchema.safeParse(input);
   if (!p.success) return { ok: false as const, error: p.error.issues[0]?.message ?? "Data tidak valid" };
-  const { id, account_id, date, visit_per_day, reach_per_day, followers } = p.data;
+  const { id, account_id, date, visit_per_day, reach_per_day, followers, new_followers } = p.data;
 
   const prev = await dbGet<{ followers: number }>(
     "SELECT followers FROM profile_insight WHERE account_id = ? AND date < ? ORDER BY date DESC LIMIT 1",
@@ -97,9 +99,9 @@ export async function updateProfileInsight(input: unknown) {
 
   const res = await dbRun(
     `UPDATE profile_insight
-     SET date = ?, visit_per_day = ?, reach_per_day = ?, followers = ?, followers_growth = ?, updated_at = datetime('now')
+     SET date = ?, visit_per_day = ?, reach_per_day = ?, followers = ?, followers_growth = ?, new_followers = ?, updated_at = datetime('now')
      WHERE id = ? AND account_id = ?`,
-    [date, visit_per_day, reach_per_day, followers, growth, id, account_id]
+    [date, visit_per_day, reach_per_day, followers, growth, new_followers, id, account_id]
   );
   if (res.changes === 0) return { ok: false as const, error: "Data tidak ditemukan" };
   await auditLog(user.id, "update", "profile_insight", id, { date });

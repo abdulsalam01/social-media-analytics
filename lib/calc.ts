@@ -4,6 +4,7 @@ export { weekStartOf, weekLabel } from "./dates";
 export type WeeklySummary = {
   week_start: string;
   total_followers: number;
+  total_new_followers: number;
   total_content: number;
   total_visit_account: number;
   total_reach_account: number;
@@ -23,6 +24,7 @@ export type WeeklySummary = {
 const emptySummary = (week: string): WeeklySummary => ({
   week_start: week,
   total_followers: 0,
+  total_new_followers: 0,
   total_content: 0,
   total_visit_account: 0,
   total_reach_account: 0,
@@ -44,10 +46,11 @@ const emptySummary = (week: string): WeeklySummary => ({
  * aggregates — O(1) round-trip regardless of dataset size.
  */
 export async function computeRangeSummary(accountId: number, from: string, to: string): Promise<WeeklySummary> {
-  const profileAgg = await dbGet<{ visit: number; reach: number }>(
+  const profileAgg = await dbGet<{ visit: number; reach: number; new_followers: number }>(
     `SELECT
        COALESCE(SUM(visit_per_day), 0) AS visit,
-       COALESCE(SUM(reach_per_day), 0) AS reach
+       COALESCE(SUM(reach_per_day), 0) AS reach,
+       COALESCE(SUM(new_followers), 0) AS new_followers
      FROM profile_insight
      WHERE account_id = ? AND date >= ? AND date <= ?`,
     [accountId, from, to]
@@ -87,6 +90,7 @@ export async function computeRangeSummary(accountId: number, from: string, to: s
   return {
     week_start: from,
     total_followers: followers,
+    total_new_followers: profileAgg?.new_followers ?? 0,
     total_content: contentAgg?.total_content ?? 0,
     total_visit_account: profileAgg?.visit ?? 0,
     total_reach_account: profileAgg?.reach ?? 0,

@@ -14,7 +14,8 @@ import {
 
 type Profile = {
   id: number; date: string; visit_per_day: number; reach_per_day: number;
-  followers: number; followers_growth: number; created_at: string; updated_at: string;
+  followers: number; followers_growth: number; new_followers: number;
+  created_at: string; updated_at: string;
 };
 type Content = {
   id: number; post_date: string; title: string | null; link: string | null; likes: number; comments: number; shares: number; saves: number;
@@ -136,6 +137,7 @@ function ProfileTable({ account, entries, total, page, pageSize, isTT }: {
             <tr className="text-left text-xs uppercase text-slate-500 border-b border-slate-100">
               <th className="px-5 py-3">Tanggal</th>
               <th className="px-5 py-3 text-right">Followers</th>
+              <th className="px-5 py-3 text-right">+Baru</th>
               <th className="px-5 py-3 text-right">Growth</th>
               <th className="px-5 py-3 text-right">{isTT ? "Video Views" : "Visit"}</th>
               <th className="px-5 py-3 text-right">{isTT ? "Profile Views" : "Reach"}</th>
@@ -149,6 +151,14 @@ function ProfileTable({ account, entries, total, page, pageSize, isTT }: {
               <tr key={e.id} className="border-b border-slate-50 hover:bg-slate-50/50">
                 <td className="px-5 py-2.5 text-slate-700">{fmtDate(e.date)}</td>
                 <td className="px-5 py-2.5 text-right font-medium">{fmtNum(e.followers)}</td>
+                <td className="px-5 py-2.5 text-right">
+                  <span className={cn(
+                    "text-xs font-medium",
+                    (e.new_followers ?? 0) > 0 ? "text-brand-600" : "text-slate-400"
+                  )}>
+                    {(e.new_followers ?? 0) > 0 ? "+" : ""}{fmtNum(e.new_followers ?? 0)}
+                  </span>
+                </td>
                 <td className="px-5 py-2.5 text-right">
                   <span className={cn(
                     "text-xs",
@@ -195,6 +205,7 @@ function EditProfileModal({ account, entry, isTT, onClose }: { account: Account;
   const [visit, setVisit] = useState(String(entry.visit_per_day));
   const [reach, setReach] = useState(String(entry.reach_per_day));
   const [followers, setFollowers] = useState(String(entry.followers));
+  const [newFollowers, setNewFollowers] = useState(String(entry.new_followers ?? 0));
   const [pending, start] = useTransition();
   const toast = useToast();
   const router = useRouter();
@@ -208,6 +219,7 @@ function EditProfileModal({ account, entry, isTT, onClose }: { account: Account;
         date,
         visit_per_day: Number(visit || 0),
         reach_per_day: Number(reach || 0),
+        new_followers: Number(newFollowers || 0),
         followers: Number(followers || 0),
       });
       if (!res.ok) return toast("error", res.error);
@@ -223,6 +235,7 @@ function EditProfileModal({ account, entry, isTT, onClose }: { account: Account;
         <div className="grid grid-cols-2 gap-3">
           <DateField compact label="Tanggal" value={date} onChange={setDate} required />
           <div><label className="label !text-xs">Followers</label><input type="number" min="0" className="input" value={followers} onChange={(e) => setFollowers(e.target.value)} /></div>
+          <div><label className="label !text-xs">Penambahan Follower</label><input type="number" min="0" className="input" value={newFollowers} onChange={(e) => setNewFollowers(e.target.value)} /></div>
           <div><label className="label !text-xs">{isTT ? "Video Views" : "Visit Per Day"}</label><input type="number" min="0" className="input" value={visit} onChange={(e) => setVisit(e.target.value)} /></div>
           <div><label className="label !text-xs">{isTT ? "Profile Views" : "Reach Per Day"}</label><input type="number" min="0" className="input" value={reach} onChange={(e) => setReach(e.target.value)} /></div>
         </div>

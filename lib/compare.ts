@@ -11,6 +11,7 @@ export function resolveComparePeriod(range: string, from?: string, to?: string):
     return d.toISOString().slice(0, 10);
   };
   if (range === "custom" && from && to) return { from, to, label: `${from} → ${to}` };
+  if (range === "1d") return { from: todayISO, to: todayISO, label: `Hari ini (${todayISO})` };
   const days = range === "7d" ? 7 : range === "90d" ? 90 : 30;
   return { from: shift(days - 1), to: todayISO, label: `${days} hari terakhir` };
 }
@@ -30,6 +31,7 @@ export type BrandStats = {
   latest_followers: number;
   first_followers: number;
   followers_growth: number;
+  new_followers_sum: number;
   visit_sum: number;
   reach_sum: number;
 };
@@ -46,7 +48,7 @@ export async function computeBrandStats(accountIds: number[], from: string, to: 
   if (accountIds.length === 0) return result;
   const ph = accountIds.map(() => "?").join(",");
 
-  const contentRows = await dbAll<Omit<BrandStats, "latest_followers" | "first_followers" | "followers_growth" | "visit_sum" | "reach_sum">>(
+  const contentRows = await dbAll<Omit<BrandStats, "latest_followers" | "first_followers" | "followers_growth" | "new_followers_sum" | "visit_sum" | "reach_sum">>(
     `SELECT account_id,
        COUNT(*) AS total_content,
        COALESCE(SUM(likes), 0)      AS total_likes,
@@ -64,10 +66,11 @@ export async function computeBrandStats(accountIds: number[], from: string, to: 
     [...accountIds, from, to]
   );
 
-  const profileRows = await dbAll<{ account_id: number; visit_sum: number; reach_sum: number }>(
+  const profileRows = await dbAll<{ account_id: number; visit_sum: number; reach_sum: number; new_followers_sum: number }>(
     `SELECT account_id,
        COALESCE(SUM(visit_per_day), 0) AS visit_sum,
-       COALESCE(SUM(reach_per_day), 0) AS reach_sum
+       COALESCE(SUM(reach_per_day), 0) AS reach_sum,
+       COALESCE(SUM(new_followers), 0) AS new_followers_sum
      FROM profile_insight
      WHERE account_id IN (${ph}) AND date >= ? AND date <= ?
      GROUP BY account_id`,
@@ -112,6 +115,7 @@ export async function computeBrandStats(accountIds: number[], from: string, to: 
       latest_followers: latest,
       first_followers: first,
       followers_growth: latest - first,
+      new_followers_sum: p?.new_followers_sum ?? 0,
       visit_sum: p?.visit_sum ?? 0,
       reach_sum: p?.reach_sum ?? 0,
     });
@@ -119,13 +123,13 @@ export async function computeBrandStats(accountIds: number[], from: string, to: 
   return result;
 }
 
-export type DailySeriesRow = { account_id: number; date: string; followers: number; visit_per_day: number; reach_per_day: number };
+export type DailySeriesRow = { account_id: number; date: string; followers: number; new_followers: number; visit_per_day: number; reach_per_day: number };
 
 export async function getBrandDailySeries(accountIds: number[], from: string, to: string): Promise<DailySeriesRow[]> {
   if (accountIds.length === 0) return [];
   const ph = accountIds.map(() => "?").join(",");
   return dbAll<DailySeriesRow>(
-    `SELECT account_id, date, followers, visit_per_day, reach_per_day
+    `SELECT account_id, date, followers, new_followers, visit_per_day, reach_per_day
      FROM profile_insight
      WHERE account_id IN (${ph}) AND date >= ? AND date <= ?
      ORDER BY date ASC`,

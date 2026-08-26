@@ -160,6 +160,7 @@ export type ProfileInsight = {
   reach_per_day: number;
   followers: number;
   followers_growth: number;
+  new_followers: number;
   created_at: string;
   updated_at: string;
 };

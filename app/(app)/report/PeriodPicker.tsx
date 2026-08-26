@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { weekStartOf, monthWindow, currentMonth } from "@/lib/dates";
 import DateField from "@/components/DateField";
 
-type Mode = "week" | "month" | "range";
+type Mode = "day" | "week" | "month" | "range";
 
 export default function PeriodPicker({
   mode, week, month, from, to, account,
@@ -35,6 +35,10 @@ export default function PeriodPicker({
   }
 
   function pickMode(m: Mode) {
+    if (m === "day") {
+      const today = new Date().toISOString().slice(0, 10);
+      push({ mode: "day", week: null, month: null, to: null, from: from || today });
+    }
     if (m === "week") push({ mode: "week", month: null, from: null, to: null, week });
     if (m === "month") push({ mode: "month", week: null, from: null, to: null, month: month || currentMonth() });
     if (m === "range") {
@@ -61,7 +65,7 @@ export default function PeriodPicker({
   return (
     <div className="flex items-center gap-2 flex-wrap">
       <div className="inline-flex rounded-lg bg-slate-100 p-1">
-        {(["week", "month", "range"] as Mode[]).map((m) => (
+        {(["day", "week", "month", "range"] as Mode[]).map((m) => (
           <button
             key={m}
             onClick={() => pickMode(m)}
@@ -71,10 +75,20 @@ export default function PeriodPicker({
               mode === m ? "bg-white text-brand-700 shadow-sm" : "text-slate-600"
             )}
           >
-            {m === "week" ? "Mingguan" : m === "month" ? "Bulanan" : "Rentang"}
+            {m === "day" ? "Harian" : m === "week" ? "Mingguan" : m === "month" ? "Bulanan" : "Rentang"}
           </button>
         ))}
       </div>
+
+      {mode === "day" && (
+        <div className="min-w-[220px]">
+          <DateField
+            compact
+            value={from || new Date().toISOString().slice(0, 10)}
+            onChange={(v) => push({ mode: "day", from: v, to: null, week: null, month: null })}
+          />
+        </div>
+      )}
 
       {mode === "week" && (
         <div className="flex items-center gap-1">

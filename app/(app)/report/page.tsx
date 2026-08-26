@@ -12,7 +12,7 @@ import { TrendingUp, TrendingDown, Minus, ExternalLink } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
-type Mode = "week" | "month" | "range";
+type Mode = "day" | "week" | "month" | "range";
 
 const ISO_RE = /^\d{4}-\d{2}-\d{2}$/;
 function validISO(s: string | undefined | null): s is string {
@@ -27,6 +27,10 @@ function resolvePeriod(mode: Mode, week: string, month: string, from: string, to
     d.setUTCDate(d.getUTCDate() + days);
     return d.toISOString().slice(0, 10);
   };
+  if (mode === "day") {
+    const day = validISO(from) ? from : new Date().toISOString().slice(0, 10);
+    return { from: day, to: day, label: `Harian: ${day}`, prevFrom: shift(day, -1), prevTo: shift(day, -1) };
+  }
   if (mode === "month") {
     const key = month && /^\d{4}-\d{2}$/.test(month) ? month : currentMonth();
     const m = monthRange(key);
@@ -83,7 +87,7 @@ export default async function ReportPage({
 
   const accountId = sp.account ? parseInt(sp.account) : accounts[0].id;
   const account = accounts.find((a) => a.id === accountId) ?? accounts[0];
-  const mode = (["week", "month", "range"].includes(sp.mode || "") ? sp.mode : "week") as Mode;
+  const mode = (["day", "week", "month", "range"].includes(sp.mode || "") ? sp.mode : "week") as Mode;
   const week = sp.week || weekStartOf(new Date().toISOString().slice(0, 10));
   const month = sp.month || currentMonth();
   const period = resolvePeriod(mode, week, month, sp.from || "", sp.to || "");
@@ -104,10 +108,11 @@ export default async function ReportPage({
     [account.id, period.from, period.to]
   );
 
-  const growthLabelPrev = mode === "week" ? "vs Minggu Lalu" : mode === "month" ? "vs Bulan Lalu" : "vs Rentang Sebelumnya";
+  const growthLabelPrev = mode === "day" ? "vs Hari Sebelumnya" : mode === "week" ? "vs Minggu Lalu" : mode === "month" ? "vs Bulan Lalu" : "vs Rentang Sebelumnya";
 
   const rows: Array<{ label: string; cur: number; delta: number | undefined; isPct?: boolean }> = [
     { label: "Total Followers", cur: cur.total_followers, delta: delta.total_followers },
+    { label: "Penambahan Follower", cur: cur.total_new_followers, delta: delta.total_new_followers },
     { label: "Total Content", cur: cur.total_content, delta: delta.total_content },
     ...(isTT
       ? [

@@ -7,10 +7,10 @@ import type { Account } from "@/lib/db";
 import PlatformBadge from "@/components/PlatformBadge";
 import DateField from "@/components/DateField";
 
-type Range = "7d" | "30d" | "90d" | "custom";
+type Range = "1d" | "7d" | "30d" | "90d" | "custom";
 
 const RANGE_OPTS: { v: Range; label: string }[] = [
-  { v: "7d", label: "7 Hari" }, { v: "30d", label: "30 Hari" }, { v: "90d", label: "90 Hari" }, { v: "custom", label: "Custom" },
+  { v: "1d", label: "Hari Ini" }, { v: "7d", label: "7 Hari" }, { v: "30d", label: "30 Hari" }, { v: "90d", label: "90 Hari" }, { v: "custom", label: "Custom" },
 ];
 
 const METRICS = [

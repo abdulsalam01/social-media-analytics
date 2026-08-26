@@ -13,6 +13,7 @@ export default function ProfileForm({ account }: { account: Account }) {
   const [visit, setVisit] = useState("");
   const [reach, setReach] = useState("");
   const [followers, setFollowers] = useState("");
+  const [newFollowers, setNewFollowers] = useState("");
   const [pending, start] = useTransition();
   const toast = useToast();
   const router = useRouter();
@@ -28,12 +29,14 @@ export default function ProfileForm({ account }: { account: Account }) {
         visit_per_day: Number(visit || 0),
         reach_per_day: Number(reach || 0),
         followers: Number(followers || 0),
+        new_followers: Number(newFollowers || 0),
       });
       if (!res.ok) return toast("error", res.error);
       toast("success", `Data ${date} tersimpan!`);
       setVisit("");
       setReach("");
       setFollowers("");
+      setNewFollowers("");
       router.refresh();
     });
   }
@@ -59,6 +62,11 @@ export default function ProfileForm({ account }: { account: Account }) {
           <label className="label">Followers Hari Ini</label>
           <input type="number" min="0" className="input" value={followers} onChange={(e) => setFollowers(e.target.value)} placeholder="Contoh: 1250" />
           <div className="hint">Total followers akun.</div>
+        </div>
+        <div>
+          <label className="label">Penambahan Follower Hari Ini</label>
+          <input type="number" min="0" className="input" value={newFollowers} onChange={(e) => setNewFollowers(e.target.value)} placeholder="Contoh: 15" />
+          <div className="hint">Angka <b>New Followers</b> dari analytics platform.</div>
         </div>
         <div>
           <label className="label">{isTT ? "Video Views Per Day" : "Visit Per Day"}</label>

@@ -11,6 +11,7 @@ type MetricRow = { key: string; label: string; isPct?: boolean; higherBetter?: b
 const METRICS: MetricRow[] = [
   { key: "latest_followers", label: "Followers Saat Ini" },
   { key: "followers_growth", label: "Followers Growth" },
+  { key: "new_followers_sum", label: "Penambahan Follower" },
   { key: "total_content", label: "Total Konten" },
   { key: "total_engagement", label: "Total Engagement" },
   { key: "total_likes", label: "Total Like" },
