@@ -5,20 +5,20 @@ import { Save, Info } from "lucide-react";
 import { saveProfileInsight } from "./actions";
 import { useToast } from "@/components/Toast";
 import type { Account } from "@/lib/db";
-import { todayISO } from "@/lib/utils";
+import { todayISO, cn } from "@/lib/utils";
 import DateField from "@/components/DateField";
 
 export default function ProfileForm({ account }: { account: Account }) {
   const [date, setDate] = useState(todayISO());
   const [visit, setVisit] = useState("");
   const [reach, setReach] = useState("");
-  const [followers, setFollowers] = useState("");
-  const [newFollowers, setNewFollowers] = useState("");
+  const [delta, setDelta] = useState("");
   const [pending, start] = useTransition();
   const toast = useToast();
   const router = useRouter();
 
   const isTT = account.platform === "tiktok";
+  const deltaNum = Number(delta || 0);
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -28,15 +28,13 @@ export default function ProfileForm({ account }: { account: Account }) {
         date,
         visit_per_day: Number(visit || 0),
         reach_per_day: Number(reach || 0),
-        followers: Number(followers || 0),
-        new_followers: Number(newFollowers || 0),
+        new_followers: deltaNum,
       });
       if (!res.ok) return toast("error", res.error);
       toast("success", `Data ${date} tersimpan!`);
       setVisit("");
       setReach("");
-      setFollowers("");
-      setNewFollowers("");
+      setDelta("");
       router.refresh();
     });
   }
@@ -58,15 +56,27 @@ export default function ProfileForm({ account }: { account: Account }) {
           required
           hint="Pilih tanggal (bukan ketik manual)."
         />
-        <div>
-          <label className="label">Followers Hari Ini</label>
-          <input type="number" min="0" className="input" value={followers} onChange={(e) => setFollowers(e.target.value)} placeholder="Contoh: 1250" />
-          <div className="hint">Total followers akun.</div>
-        </div>
-        <div>
-          <label className="label">Penambahan Follower Hari Ini</label>
-          <input type="number" min="0" className="input" value={newFollowers} onChange={(e) => setNewFollowers(e.target.value)} placeholder="Contoh: 15" />
-          <div className="hint">Angka <b>New Followers</b> dari analytics platform.</div>
+        <div className="sm:col-span-2">
+          <label className="label">Penambahan / Pengurangan Follower Hari Ini</label>
+          <input
+            type="number"
+            className="input"
+            value={delta}
+            onChange={(e) => setDelta(e.target.value)}
+            placeholder="Contoh: 15 (nambah), -3 (kurang)"
+          />
+          <div className="hint">
+            Isi angka <b>positif</b> jika followers bertambah, <b>negatif</b> jika berkurang.
+            Total followers otomatis dihitung dari akumulasi harian.
+            {deltaNum !== 0 && (
+              <span className={cn(
+                "ml-2 font-medium",
+                deltaNum > 0 ? "text-emerald-600" : "text-red-600"
+              )}>
+                {deltaNum > 0 ? "+" : ""}{deltaNum} follower
+              </span>
+            )}
+          </div>
         </div>
         <div>
           <label className="label">{isTT ? "Video Views Per Day" : "Visit Per Day"}</label>

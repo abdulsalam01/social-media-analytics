@@ -136,9 +136,8 @@ function ProfileTable({ account, entries, total, page, pageSize, isTT }: {
           <thead>
             <tr className="text-left text-xs uppercase text-slate-500 border-b border-slate-100">
               <th className="px-5 py-3">Tanggal</th>
-              <th className="px-5 py-3 text-right">Followers</th>
-              <th className="px-5 py-3 text-right">+Baru</th>
-              <th className="px-5 py-3 text-right">Growth</th>
+              <th className="px-5 py-3 text-right">Followers (Total)</th>
+              <th className="px-5 py-3 text-right">Delta</th>
               <th className="px-5 py-3 text-right">{isTT ? "Video Views" : "Visit"}</th>
               <th className="px-5 py-3 text-right">{isTT ? "Profile Views" : "Reach"}</th>
               <th className="px-5 py-3">Ditambah</th>
@@ -154,18 +153,10 @@ function ProfileTable({ account, entries, total, page, pageSize, isTT }: {
                 <td className="px-5 py-2.5 text-right">
                   <span className={cn(
                     "text-xs font-medium",
-                    (e.new_followers ?? 0) > 0 ? "text-brand-600" : "text-slate-400"
+                    (e.new_followers ?? 0) > 0 ? "text-emerald-600" :
+                      (e.new_followers ?? 0) < 0 ? "text-red-600" : "text-slate-400"
                   )}>
                     {(e.new_followers ?? 0) > 0 ? "+" : ""}{fmtNum(e.new_followers ?? 0)}
-                  </span>
-                </td>
-                <td className="px-5 py-2.5 text-right">
-                  <span className={cn(
-                    "text-xs",
-                    e.followers_growth > 0 ? "text-emerald-600" :
-                      e.followers_growth < 0 ? "text-red-600" : "text-slate-400"
-                  )}>
-                    {e.followers_growth > 0 ? "+" : ""}{fmtNum(e.followers_growth)}
                   </span>
                 </td>
                 <td className="px-5 py-2.5 text-right text-slate-600">{fmtNum(e.visit_per_day)}</td>
@@ -204,8 +195,7 @@ function EditProfileModal({ account, entry, isTT, onClose }: { account: Account;
   const [date, setDate] = useState(entry.date);
   const [visit, setVisit] = useState(String(entry.visit_per_day));
   const [reach, setReach] = useState(String(entry.reach_per_day));
-  const [followers, setFollowers] = useState(String(entry.followers));
-  const [newFollowers, setNewFollowers] = useState(String(entry.new_followers ?? 0));
+  const [delta, setDelta] = useState(String(entry.new_followers ?? 0));
   const [pending, start] = useTransition();
   const toast = useToast();
   const router = useRouter();
@@ -219,8 +209,7 @@ function EditProfileModal({ account, entry, isTT, onClose }: { account: Account;
         date,
         visit_per_day: Number(visit || 0),
         reach_per_day: Number(reach || 0),
-        new_followers: Number(newFollowers || 0),
-        followers: Number(followers || 0),
+        new_followers: Number(delta || 0),
       });
       if (!res.ok) return toast("error", res.error);
       toast("success", "Data diperbarui.");
@@ -234,8 +223,11 @@ function EditProfileModal({ account, entry, isTT, onClose }: { account: Account;
       <form onSubmit={onSubmit} className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <DateField compact label="Tanggal" value={date} onChange={setDate} required />
-          <div><label className="label !text-xs">Followers</label><input type="number" min="0" className="input" value={followers} onChange={(e) => setFollowers(e.target.value)} /></div>
-          <div><label className="label !text-xs">Penambahan Follower</label><input type="number" min="0" className="input" value={newFollowers} onChange={(e) => setNewFollowers(e.target.value)} /></div>
+          <div>
+            <label className="label !text-xs">Penambahan / Pengurangan Follower</label>
+            <input type="number" className="input" value={delta} onChange={(e) => setDelta(e.target.value)} placeholder="Contoh: 15 atau -3" />
+            <div className="hint !mt-0.5">Total otomatis dari akumulasi.</div>
+          </div>
           <div><label className="label !text-xs">{isTT ? "Video Views" : "Visit Per Day"}</label><input type="number" min="0" className="input" value={visit} onChange={(e) => setVisit(e.target.value)} /></div>
           <div><label className="label !text-xs">{isTT ? "Profile Views" : "Reach Per Day"}</label><input type="number" min="0" className="input" value={reach} onChange={(e) => setReach(e.target.value)} /></div>
         </div>

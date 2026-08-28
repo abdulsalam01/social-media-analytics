@@ -8,6 +8,7 @@ import EmptyState from "@/components/EmptyState";
 import AccountPicker from "@/components/AccountPicker";
 import PrintButton from "./PrintButton";
 import PeriodPicker from "./PeriodPicker";
+import ReportSubNav from "./ReportSubNav";
 import { TrendingUp, TrendingDown, Minus, ExternalLink } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -140,7 +141,8 @@ export default async function ReportPage({
       <div className="no-print flex items-start justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Laporan</h1>
-          <p className="text-sm text-slate-500">Ringkasan performa mingguan / bulanan / rentang custom.</p>
+          <p className="text-sm text-slate-500">Ringkasan performa harian / mingguan / bulanan / rentang.</p>
+          <div className="mt-3"><ReportSubNav /></div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <AccountPicker accounts={accounts} current={account.id} basePath="/report" />

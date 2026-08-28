@@ -9,21 +9,26 @@ const ProfileSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Format tanggal salah"),
   visit_per_day: z.number().int().min(0),
   reach_per_day: z.number().int().min(0),
-  followers: z.number().int().min(0),
-  new_followers: z.number().int().min(0).default(0),
+  new_followers: z.number().int().default(0), // signed: + adds, - subtracts
 });
 
+/**
+ * Save daily profile insight. `followers` (total) is auto-derived from
+ * previous day's followers + this day's delta. User only inputs the delta.
+ */
 export async function saveProfileInsight(input: unknown) {
   const user = await requireRole(["admin", "editor"]);
   const p = ProfileSchema.safeParse(input);
   if (!p.success) return { ok: false as const, error: p.error.issues[0]?.message ?? "Data tidak valid" };
-  const { account_id, date, visit_per_day, reach_per_day, followers, new_followers } = p.data;
+  const { account_id, date, visit_per_day, reach_per_day, new_followers } = p.data;
 
   const prev = await dbGet<{ followers: number }>(
     "SELECT followers FROM profile_insight WHERE account_id = ? AND date < ? ORDER BY date DESC LIMIT 1",
     [account_id, date]
   );
-  const growth = prev ? followers - prev.followers : 0;
+  const prevFollowers = prev?.followers ?? 0;
+  const followers = Math.max(0, prevFollowers + new_followers);
+  const growth = new_followers;
 
   await dbRun(
     `INSERT INTO profile_insight (account_id, date, visit_per_day, reach_per_day, followers, followers_growth, new_followers, created_at, updated_at)
@@ -38,7 +43,7 @@ export async function saveProfileInsight(input: unknown) {
     [account_id, date, visit_per_day, reach_per_day, followers, growth, new_followers]
   );
 
-  await auditLog(user.id, "upsert", "profile_insight", account_id, { date });
+  await auditLog(user.id, "upsert", "profile_insight", account_id, { date, delta: new_followers });
   return { ok: true as const };
 }
 
@@ -89,13 +94,15 @@ export async function updateProfileInsight(input: unknown) {
   const user = await requireRole(["admin", "editor"]);
   const p = ProfileUpdateSchema.safeParse(input);
   if (!p.success) return { ok: false as const, error: p.error.issues[0]?.message ?? "Data tidak valid" };
-  const { id, account_id, date, visit_per_day, reach_per_day, followers, new_followers } = p.data;
+  const { id, account_id, date, visit_per_day, reach_per_day, new_followers } = p.data;
 
   const prev = await dbGet<{ followers: number }>(
-    "SELECT followers FROM profile_insight WHERE account_id = ? AND date < ? ORDER BY date DESC LIMIT 1",
-    [account_id, date]
+    "SELECT followers FROM profile_insight WHERE account_id = ? AND date < ? AND id != ? ORDER BY date DESC LIMIT 1",
+    [account_id, date, id]
   );
-  const growth = prev ? followers - prev.followers : 0;
+  const prevFollowers = prev?.followers ?? 0;
+  const followers = Math.max(0, prevFollowers + new_followers);
+  const growth = new_followers;
 
   const res = await dbRun(
     `UPDATE profile_insight
