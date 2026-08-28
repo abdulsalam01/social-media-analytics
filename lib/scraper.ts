@@ -152,6 +152,88 @@ function extractShortcode(url: string): string | null {
   return m?.[1] ?? null;
 }
 
+export interface ScrapePostDirectResult {
+  ok: boolean;
+  handle?: string;
+  likes?: number;
+  comments?: number;
+  plays?: number;
+  views?: number;
+  caption?: string | null;
+  post_date?: string;
+  error?: string;
+}
+
+/**
+ * Scrape a single Instagram post directly from its public URL.
+ * Parses meta description tag (contains likes/comments/handle/date/caption).
+ * Works without needing to know the account beforehand.
+ * Format: "619 likes, 2 comments - unikom_official on August 16, 2026: caption"
+ * Reels: may include "views" or "plays" ahead of likes.
+ */
+export async function scrapeInstagramPostDirect(shortcode: string): Promise<ScrapePostDirectResult> {
+  const url = `https://www.instagram.com/p/${shortcode}/`;
+  try {
+    const res = await fetch(url, {
+      headers: IG_HEADERS,
+      signal: AbortSignal.timeout(20000),
+    });
+    if (!res.ok) return { ok: false, error: `HTTP ${res.status} from Instagram post page` };
+
+    const html = await res.text();
+
+    // Handle from og:url — https://www.instagram.com/<handle>/p/<shortcode>/
+    const ogUrl = html.match(/<meta property="og:url" content="https:\/\/www\.instagram\.com\/([^/]+)\/(?:p|reel)\//);
+    const handle = ogUrl?.[1];
+
+    // Meta description contains counts + caption
+    const metaDesc = html.match(/<meta name="description" content="([^"]+)"/);
+    if (!metaDesc) return { ok: false, error: "meta description not found — page structure changed or post private" };
+
+    const desc = metaDesc[1]
+      .replace(/&quot;/g, '"')
+      .replace(/&#x27;/g, "'")
+      .replace(/&amp;/g, "&");
+
+    // Parse "N likes, M comments" — allow commas + K/M suffixes
+    const num = (s: string): number => {
+      const clean = s.replace(/,/g, "");
+      if (/[Kk]$/.test(clean)) return Math.round(parseFloat(clean) * 1000);
+      if (/[Mm]$/.test(clean)) return Math.round(parseFloat(clean) * 1_000_000);
+      return parseInt(clean, 10) || 0;
+    };
+
+    const likesMatch = desc.match(/([\d,.]+[KMkm]?)\s+likes?/);
+    const commentsMatch = desc.match(/([\d,.]+[KMkm]?)\s+comments?/);
+    const playsMatch = desc.match(/([\d,.]+[KMkm]?)\s+plays?/);
+    const viewsMatch = desc.match(/([\d,.]+[KMkm]?)\s+views?/);
+
+    // Date + caption: "- handle on Month DD, YYYY: caption..."
+    const dateMatch = desc.match(/on\s+(\w+\s+\d+,\s+\d{4})/);
+    let post_date: string | undefined;
+    if (dateMatch) {
+      const d = new Date(dateMatch[1] + " UTC");
+      if (!isNaN(d.getTime())) post_date = d.toISOString().split("T")[0];
+    }
+
+    const captionMatch = desc.match(/:\s*"?(.*?)"?\s*$/s);
+    const caption = captionMatch?.[1]?.slice(0, 300) ?? null;
+
+    return {
+      ok: true,
+      handle,
+      likes: likesMatch ? num(likesMatch[1]) : undefined,
+      comments: commentsMatch ? num(commentsMatch[1]) : undefined,
+      plays: playsMatch ? num(playsMatch[1]) : undefined,
+      views: viewsMatch ? num(viewsMatch[1]) : undefined,
+      caption,
+      post_date,
+    };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Unknown error" };
+  }
+}
+
 export async function scrapeInstagramProfile(handle: string): Promise<ScrapeProfileResult> {
   const url = `https://i.instagram.com/api/v1/users/web_profile_info/?username=${encodeURIComponent(handle)}`;
   try {
@@ -401,6 +483,40 @@ export async function runScrapeForPost(postId: number, userId?: number): Promise
     return { post_id: postId, status: "error", matched: false, error: "Cannot determine post ID — link or shortcode missing" };
   }
 
+  // Instagram: try direct post URL scrape first (works even for old posts)
+  if (account.platform === "instagram") {
+    const direct = await scrapeInstagramPostDirect(shortcode);
+    if (direct.ok && (direct.likes !== undefined || direct.comments !== undefined)) {
+      const likes = direct.likes ?? 0;
+      const comments = direct.comments ?? 0;
+      const plays = direct.plays ?? direct.views ?? 0;
+      const engagement = likes + comments;
+      const denom = plays > 0 ? plays : 1;
+      const rate = engagement > 0 ? engagement / denom : 0;
+
+      await dbRun(
+        `UPDATE content_insight
+         SET likes = ?, comments = ?,
+             plays = CASE WHEN ? > 0 THEN ? ELSE plays END,
+             engagement = ?, engagement_rate = ?,
+             shortcode = ?, updated_at = datetime('now')
+         WHERE id = ?`,
+        [likes, comments, plays, plays, engagement, rate, shortcode, postId]
+      );
+
+      if (userId) {
+        await auditLog(userId, "scrape_post_direct", "content_insight", postId, { shortcode });
+      }
+      return {
+        post_id: postId,
+        status: "ok",
+        matched: true,
+        data: { likes, comments, plays: plays || undefined },
+      };
+    }
+    // Fall through to profile-match approach if direct failed
+  }
+
   const result = account.platform === "tiktok"
     ? await scrapeTikTokProfile(account.handle)
     : await scrapeInstagramProfile(account.handle);
@@ -415,7 +531,7 @@ export async function runScrapeForPost(postId: number, userId?: number): Promise
       post_id: postId,
       status: "error",
       matched: false,
-      error: "Post not in recent 12 — too old to scrape without direct API access",
+      error: "Post not in recent 12 and direct URL scrape failed",
     };
   }
 
