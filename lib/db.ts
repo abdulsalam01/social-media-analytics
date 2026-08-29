@@ -45,10 +45,13 @@ async function ensureAdminBootstrap(client: Client): Promise<void> {
       });
       if (existing.rows.length > 0) return;
       const hash = bcrypt.hashSync(password, 12);
-      await client.execute({
-        sql: "INSERT INTO users (email, password_hash, name, role) VALUES (?, ?, ?, 'admin')",
-        args: [email.toLowerCase(), hash, "Administrator"],
-      });
+      await client.batch(
+        [{
+          sql: "INSERT INTO users (email, password_hash, name, role) VALUES (?, ?, ?, 'admin')",
+          args: [email.toLowerCase(), hash, "Administrator"],
+        }],
+        "write"
+      );
       console.log(`[db] Admin bootstrapped: ${email}`);
     } catch (e) {
       console.error("[db] Admin bootstrap failed:", e);
@@ -86,7 +89,7 @@ export async function dbGet<T = Record<string, unknown>>(sql: string, args: InVa
 
 export async function dbRun(sql: string, args: InValue[] = []): Promise<{ changes: number; lastInsertRowid: number }> {
   await ensureSchema(db);
-  const r = await db.execute({ sql, args });
+  const [r] = await db.batch([{ sql, args }], "write");
   return {
     changes: Number(r.rowsAffected ?? 0),
     lastInsertRowid: Number(r.lastInsertRowid ?? 0),

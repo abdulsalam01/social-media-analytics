@@ -1,21 +1,11 @@
 import type { Client } from "@libsql/client";
 
 /**
- * Full schema — inlined so Vercel bundler picks it up without file-tracing quirks.
- * All statements are idempotent (CREATE TABLE IF NOT EXISTS, CREATE INDEX IF NOT EXISTS).
- * Auto-runs on cold start. Safe to run repeatedly.
+ * Canonical schema for a brand-new database. Tables and indexes are applied in
+ * explicit write batches so Turso commits the complete migration before the
+ * initializer exits.
  */
-const SCHEMA_STATEMENTS: string[] = [
-  `CREATE TABLE IF NOT EXISTS scrape_log (
-     id            INTEGER PRIMARY KEY AUTOINCREMENT,
-     account_id    INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
-     scraped_at    TEXT NOT NULL DEFAULT (datetime('now')),
-     status        TEXT NOT NULL,
-     posts_found   INTEGER NOT NULL DEFAULT 0,
-     posts_updated INTEGER NOT NULL DEFAULT 0,
-     error         TEXT
-   )`,
-  `CREATE INDEX IF NOT EXISTS idx_scrape_log_account ON scrape_log(account_id, scraped_at DESC)`,
+const TABLE_STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS users (
      id            INTEGER PRIMARY KEY AUTOINCREMENT,
      email         TEXT NOT NULL UNIQUE,
@@ -25,15 +15,17 @@ const SCHEMA_STATEMENTS: string[] = [
      created_at    TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
    )`,
   `CREATE TABLE IF NOT EXISTS accounts (
-     id         INTEGER PRIMARY KEY AUTOINCREMENT,
-     name       TEXT NOT NULL,
-     platform   TEXT NOT NULL CHECK(platform IN ('instagram','tiktok')),
-     handle     TEXT NOT NULL,
-     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+     id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+     name               TEXT NOT NULL,
+     platform           TEXT NOT NULL CHECK(platform IN ('instagram','tiktok')),
+     handle             TEXT NOT NULL,
+     scrape_enabled     INTEGER NOT NULL DEFAULT 0,
+     scrape_url         TEXT,
+     last_scraped_at    TEXT,
+     last_scrape_status TEXT,
+     created_at         TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
      UNIQUE(platform, handle)
    )`,
-  `CREATE INDEX IF NOT EXISTS idx_accounts_platform ON accounts(platform)`,
-
   `CREATE TABLE IF NOT EXISTS profile_insight (
      id                INTEGER PRIMARY KEY AUTOINCREMENT,
      account_id        INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
@@ -42,40 +34,34 @@ const SCHEMA_STATEMENTS: string[] = [
      reach_per_day     INTEGER NOT NULL DEFAULT 0,
      followers         INTEGER NOT NULL DEFAULT 0,
      followers_growth  INTEGER NOT NULL DEFAULT 0,
+     new_followers     INTEGER NOT NULL DEFAULT 0,
      created_at        TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
      updated_at        TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
      UNIQUE(account_id, date)
    )`,
-  `CREATE INDEX IF NOT EXISTS idx_pi_account_date ON profile_insight(account_id, date)`,
-
   `CREATE TABLE IF NOT EXISTS content_insight (
      id              INTEGER PRIMARY KEY AUTOINCREMENT,
      account_id      INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
      post_date       TEXT NOT NULL,
      title           TEXT,
      link            TEXT,
+     shortcode       TEXT,
      profile_visit   INTEGER NOT NULL DEFAULT 0,
      likes           INTEGER NOT NULL DEFAULT 0,
      comments        INTEGER NOT NULL DEFAULT 0,
      shares          INTEGER NOT NULL DEFAULT 0,
      saves           INTEGER NOT NULL DEFAULT 0,
+     reposts         INTEGER NOT NULL DEFAULT 0,
      follows         INTEGER NOT NULL DEFAULT 0,
      reach           INTEGER NOT NULL DEFAULT 0,
      impression      INTEGER NOT NULL DEFAULT 0,
      plays           INTEGER NOT NULL DEFAULT 0,
      engagement      INTEGER NOT NULL DEFAULT 0,
      engagement_rate REAL    NOT NULL DEFAULT 0,
+     scrape_enabled  INTEGER NOT NULL DEFAULT 1,
      created_at      TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
      updated_at      TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
    )`,
-  `CREATE INDEX IF NOT EXISTS idx_ci_account_date ON content_insight(account_id, post_date)`,
-  `CREATE INDEX IF NOT EXISTS idx_ci_account_eng ON content_insight(account_id, engagement DESC)`,
-  `CREATE INDEX IF NOT EXISTS idx_ci_account_reach ON content_insight(account_id, reach DESC)`,
-  `CREATE INDEX IF NOT EXISTS idx_ci_account_plays ON content_insight(account_id, plays DESC)`,
-  `CREATE INDEX IF NOT EXISTS idx_ci_account_rate ON content_insight(account_id, engagement_rate DESC)`,
-  `CREATE INDEX IF NOT EXISTS idx_ci_created ON content_insight(account_id, created_at DESC)`,
-  `CREATE INDEX IF NOT EXISTS idx_ci_title ON content_insight(account_id, title COLLATE NOCASE)`,
-
   `CREATE TABLE IF NOT EXISTS demographics (
      id           INTEGER PRIMARY KEY AUTOINCREMENT,
      account_id   INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
@@ -85,8 +71,6 @@ const SCHEMA_STATEMENTS: string[] = [
      value        REAL NOT NULL,
      UNIQUE(account_id, week_start, kind, label)
    )`,
-  `CREATE INDEX IF NOT EXISTS idx_demo_lookup ON demographics(account_id, week_start, kind)`,
-
   `CREATE TABLE IF NOT EXISTS audit_log (
      id         INTEGER PRIMARY KEY AUTOINCREMENT,
      user_id    INTEGER REFERENCES users(id) ON DELETE SET NULL,
@@ -96,8 +80,6 @@ const SCHEMA_STATEMENTS: string[] = [
      meta       TEXT,
      at         TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
    )`,
-  `CREATE INDEX IF NOT EXISTS idx_audit_at ON audit_log(at DESC)`,
-
   `CREATE TABLE IF NOT EXISTS login_attempts (
      id       INTEGER PRIMARY KEY AUTOINCREMENT,
      email    TEXT NOT NULL,
@@ -105,52 +87,86 @@ const SCHEMA_STATEMENTS: string[] = [
      success  INTEGER NOT NULL,
      at       TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
    )`,
-  `CREATE INDEX IF NOT EXISTS idx_login_email_at ON login_attempts(email, at DESC)`,
-  `CREATE INDEX IF NOT EXISTS idx_login_ip_at ON login_attempts(ip, at DESC)`,
-];
+  `CREATE TABLE IF NOT EXISTS scrape_log (
+     id            INTEGER PRIMARY KEY AUTOINCREMENT,
+     account_id    INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+     scraped_at    TEXT NOT NULL DEFAULT (datetime('now')),
+     status        TEXT NOT NULL,
+     posts_found   INTEGER NOT NULL DEFAULT 0,
+     posts_updated INTEGER NOT NULL DEFAULT 0,
+     error         TEXT
+   )`,
+] as const;
+
+const ADDITIVE_COLUMNS = [
+  { table: "accounts", column: "scrape_enabled", definition: "scrape_enabled INTEGER NOT NULL DEFAULT 0" },
+  { table: "accounts", column: "scrape_url", definition: "scrape_url TEXT" },
+  { table: "accounts", column: "last_scraped_at", definition: "last_scraped_at TEXT" },
+  { table: "accounts", column: "last_scrape_status", definition: "last_scrape_status TEXT" },
+  { table: "profile_insight", column: "new_followers", definition: "new_followers INTEGER NOT NULL DEFAULT 0" },
+  { table: "profile_insight", column: "updated_at", definition: "updated_at TEXT" },
+  { table: "content_insight", column: "title", definition: "title TEXT" },
+  { table: "content_insight", column: "shortcode", definition: "shortcode TEXT" },
+  { table: "content_insight", column: "reposts", definition: "reposts INTEGER NOT NULL DEFAULT 0" },
+  { table: "content_insight", column: "scrape_enabled", definition: "scrape_enabled INTEGER NOT NULL DEFAULT 1" },
+  { table: "content_insight", column: "updated_at", definition: "updated_at TEXT" },
+] as const;
+
+const INDEX_STATEMENTS = [
+  "CREATE INDEX IF NOT EXISTS idx_accounts_platform ON accounts(platform)",
+  "CREATE INDEX IF NOT EXISTS idx_pi_account_date ON profile_insight(account_id, date)",
+  "CREATE INDEX IF NOT EXISTS idx_ci_account_date ON content_insight(account_id, post_date)",
+  "CREATE INDEX IF NOT EXISTS idx_ci_account_eng ON content_insight(account_id, engagement DESC)",
+  "CREATE INDEX IF NOT EXISTS idx_ci_account_reach ON content_insight(account_id, reach DESC)",
+  "CREATE INDEX IF NOT EXISTS idx_ci_account_plays ON content_insight(account_id, plays DESC)",
+  "CREATE INDEX IF NOT EXISTS idx_ci_account_rate ON content_insight(account_id, engagement_rate DESC)",
+  "CREATE INDEX IF NOT EXISTS idx_ci_created ON content_insight(account_id, created_at DESC)",
+  "CREATE INDEX IF NOT EXISTS idx_ci_title ON content_insight(account_id, title COLLATE NOCASE)",
+  "CREATE INDEX IF NOT EXISTS idx_demo_lookup ON demographics(account_id, week_start, kind)",
+  "CREATE INDEX IF NOT EXISTS idx_audit_at ON audit_log(at DESC)",
+  "CREATE INDEX IF NOT EXISTS idx_login_email_at ON login_attempts(email, at DESC)",
+  "CREATE INDEX IF NOT EXISTS idx_login_ip_at ON login_attempts(ip, at DESC)",
+  "CREATE INDEX IF NOT EXISTS idx_scrape_log_account ON scrape_log(account_id, scraped_at DESC)",
+] as const;
 
 let migrationPromise: Promise<void> | null = null;
 
-/**
- * Idempotent auto-migration. Runs once per process on first DB call.
- * Statements executed individually to avoid libSQL executeMultiple parsing quirks
- * and to make partial failures debuggable.
- */
+async function getColumnNames(client: Client, table: string): Promise<Set<string>> {
+  const result = await client.execute(`PRAGMA table_info(${table})`);
+  return new Set(result.rows.map((row) => String(row.name)));
+}
+
+/** Apply the complete idempotent schema and commit every migration batch. */
 export function ensureSchema(client: Client): Promise<void> {
   if (migrationPromise) return migrationPromise;
-  migrationPromise = (async () => {
-    for (const stmt of SCHEMA_STATEMENTS) {
-      try {
-        await client.execute(stmt);
-      } catch (e) {
-        console.error("[migrations] Statement failed:", stmt.slice(0, 80), e);
-        throw e;
-      }
-    }
-    // updated_at backfill for pre-existing rows (idempotent NO-OP if already set)
-    try {
-      await client.execute("UPDATE profile_insight SET updated_at = created_at WHERE updated_at IS NULL OR updated_at = ''");
-      await client.execute("UPDATE content_insight SET updated_at = created_at WHERE updated_at IS NULL OR updated_at = ''");
-    } catch { /* ignore */ }
 
-    // Additive column migrations — ignore "duplicate column" if already applied
-    const alterStatements = [
-      "ALTER TABLE accounts ADD COLUMN scrape_enabled INTEGER NOT NULL DEFAULT 0",
-      "ALTER TABLE accounts ADD COLUMN scrape_url TEXT",
-      "ALTER TABLE accounts ADD COLUMN last_scraped_at TEXT",
-      "ALTER TABLE accounts ADD COLUMN last_scrape_status TEXT",
-      "ALTER TABLE content_insight ADD COLUMN scrape_enabled INTEGER NOT NULL DEFAULT 1",
-      "ALTER TABLE content_insight ADD COLUMN shortcode TEXT",
-      "ALTER TABLE content_insight ADD COLUMN reposts INTEGER NOT NULL DEFAULT 0",
-      "ALTER TABLE profile_insight ADD COLUMN new_followers INTEGER NOT NULL DEFAULT 0",
-    ];
-    for (const stmt of alterStatements) {
-      try {
-        await client.execute(stmt);
-      } catch (e: unknown) {
-        if (!(e instanceof Error) || !e.message.includes("duplicate column")) throw e;
+  migrationPromise = (async () => {
+    await client.batch([...TABLE_STATEMENTS], "write");
+
+    const columnsByTable = new Map<string, Set<string>>();
+    const alterStatements: string[] = [];
+    for (const migration of ADDITIVE_COLUMNS) {
+      let columns = columnsByTable.get(migration.table);
+      if (!columns) {
+        columns = await getColumnNames(client, migration.table);
+        columnsByTable.set(migration.table, columns);
+      }
+      if (!columns.has(migration.column)) {
+        alterStatements.push(`ALTER TABLE ${migration.table} ADD COLUMN ${migration.definition}`);
+        columns.add(migration.column);
       }
     }
+    if (alterStatements.length) await client.batch(alterStatements, "write");
+
+    await client.batch([...INDEX_STATEMENTS], "write");
+    await client.batch(
+      [
+        "UPDATE profile_insight SET updated_at = created_at WHERE updated_at IS NULL OR updated_at = ''",
+        "UPDATE content_insight SET updated_at = created_at WHERE updated_at IS NULL OR updated_at = ''",
+      ],
+      "write"
+    );
   })();
+
   return migrationPromise;
 }

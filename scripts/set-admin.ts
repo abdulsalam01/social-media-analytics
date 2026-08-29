@@ -3,7 +3,8 @@ dotenv.config({ path: ".env.local" });
 dotenv.config({ path: ".env" });
 
 import bcrypt from "bcryptjs";
-import { dbGet, dbRun } from "../lib/db";
+import { ensureSchema } from "../lib/migrations";
+import { createConfiguredClient } from "./db-client";
 
 async function main() {
   const email = process.env.ADMIN_EMAIL?.trim().toLowerCase();
@@ -14,21 +15,25 @@ async function main() {
     throw new Error("ADMIN_PASSWORD wajib diisi dan minimal 8 karakter");
   }
 
-  const hash = bcrypt.hashSync(password, 12);
-  const existing = await dbGet<{ id: number }>("SELECT id FROM users WHERE email = ?", [email]);
-
-  if (existing) {
-    await dbRun(
-      "UPDATE users SET password_hash = ?, name = ?, role = 'admin' WHERE id = ?",
-      [hash, "Administrator", existing.id]
+  const client = createConfiguredClient();
+  try {
+    await ensureSchema(client);
+    const hash = bcrypt.hashSync(password, 12);
+    await client.batch(
+      [{
+        sql: `INSERT INTO users (email, password_hash, name, role)
+              VALUES (?, ?, ?, 'admin')
+              ON CONFLICT(email) DO UPDATE SET
+                password_hash = excluded.password_hash,
+                name = excluded.name,
+                role = 'admin'`,
+        args: [email, hash, "Administrator"],
+      }],
+      "write"
     );
-    console.log(`Administrator diperbarui: ${email}`);
-  } else {
-    await dbRun(
-      "INSERT INTO users (email, password_hash, name, role) VALUES (?, ?, ?, 'admin')",
-      [email, hash, "Administrator"]
-    );
-    console.log(`Administrator dibuat: ${email}`);
+    console.log(`Administrator dibuat/diperbarui dan committed: ${email}`);
+  } finally {
+    client.close();
   }
 }
 
