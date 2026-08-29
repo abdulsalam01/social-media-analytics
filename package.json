@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "db:init": "tsx scripts/init-db.ts",
+    "db:admin": "tsx scripts/set-admin.ts",
+    "db:verify": "tsx scripts/verify-db.ts",
     "db:seed": "tsx scripts/seed-demo.ts"
   },
   "dependencies": {

@@ -60,10 +60,13 @@ TURSO_AUTH_TOKEN=eyJ...
 ADMIN_EMAIL=admin@perusahaan.com
 ADMIN_PASSWORD=UbahPasswordKuat123!
 SESSION_SECRET=$(openssl rand -hex 32)
+CRON_SECRET=$(openssl rand -hex 32)
 EOF
 
 # Run migration + admin
 npm run db:init
+npm run db:admin
+npm run db:verify
 
 # Optional: seed demo data
 npm run db:seed
@@ -85,13 +88,15 @@ Di [vercel.com/new](https://vercel.com/new):
 2. Framework Preset: Next.js (auto-detect)
 3. Build Command: `next build` (default)
 4. Output Directory: `.next` (default)
-5. **Environment Variables** — tambahkan semua:
+5. **Environment Variables** — tambahkan semua. Tandai token, secret, dan password
+   sebagai sensitive values di Vercel:
 
 | Key                   | Value                            | Env      |
 |-----------------------|----------------------------------|----------|
 | `TURSO_DATABASE_URL`  | `libsql://xxx.turso.io`          | All      |
 | `TURSO_AUTH_TOKEN`    | `eyJ...`                         | All      |
 | `SESSION_SECRET`      | (hasil `openssl rand -hex 32`)   | All      |
+| `CRON_SECRET`         | (hasil `openssl rand -hex 32`)   | All      |
 | `ADMIN_EMAIL`         | admin@perusahaan.com             | All      |
 | `ADMIN_PASSWORD`      | (password kuat)                  | All      |
 
@@ -104,6 +109,7 @@ vercel link
 vercel env add TURSO_DATABASE_URL production
 vercel env add TURSO_AUTH_TOKEN production
 vercel env add SESSION_SECRET production
+vercel env add CRON_SECRET production
 vercel --prod
 ```
 

@@ -38,11 +38,14 @@ TURSO_AUTH_TOKEN=$TOKEN
 ADMIN_EMAIL=$(read -p "Admin email: " a && echo "$a")
 ADMIN_PASSWORD=$(read -p "Admin password (min 8): " p && echo "$p")
 SESSION_SECRET=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
+CRON_SECRET=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
 EOF
 mv .env.local.tmp .env.local
 
 echo "==> Run migrations + create admin di Turso"
 npm run db:init
+npm run db:admin
+npm run db:verify
 
 echo
 echo "==> (Opsional) seed demo data"
@@ -58,6 +61,8 @@ vercel env add TURSO_DATABASE_URL production < <(echo "$URL")
 vercel env add TURSO_AUTH_TOKEN production < <(echo "$TOKEN")
 SESSION=$(grep '^SESSION_SECRET=' .env.local | cut -d= -f2)
 vercel env add SESSION_SECRET production < <(echo "$SESSION")
+CRON=$(grep '^CRON_SECRET=' .env.local | cut -d= -f2)
+vercel env add CRON_SECRET production < <(echo "$CRON")
 vercel env add ADMIN_EMAIL production < <(grep '^ADMIN_EMAIL=' .env.local | cut -d= -f2)
 vercel env add ADMIN_PASSWORD production < <(grep '^ADMIN_PASSWORD=' .env.local | cut -d= -f2)
 

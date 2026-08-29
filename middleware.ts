@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/api/auth/login", "/_next", "/favicon.ico", "/logo.svg"];
+// Scrape API performs its own session or CRON_SECRET authorization. It must reach
+// the route without a session cookie because Vercel Cron authenticates by header.
+const PUBLIC_PATHS = ["/login", "/api/auth/login", "/api/scrape", "/_next", "/favicon.ico", "/logo.svg"];
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;

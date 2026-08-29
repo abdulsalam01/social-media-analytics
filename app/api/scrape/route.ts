@@ -34,8 +34,18 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ ok: true, total: results.length, failed, results });
 }
 
-// GET /api/scrape — return scrape status for all accounts
-export async function GET() {
+// GET /api/scrape — run Vercel cron when authorized, otherwise return account status
+export async function GET(req: NextRequest) {
+  const cronSecret = process.env.CRON_SECRET;
+  const authHeader = req.headers.get("authorization");
+  const isCron = Boolean(cronSecret && authHeader === `Bearer ${cronSecret}`);
+
+  if (isCron) {
+    const results = await runScrapeAll();
+    const failed = results.filter((result) => result.status === "error").length;
+    return NextResponse.json({ ok: failed === 0, total: results.length, failed, results });
+  }
+
   const user = await currentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
