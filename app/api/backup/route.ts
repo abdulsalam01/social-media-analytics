@@ -36,18 +36,30 @@ export async function GET() {
   }
 
   // Remote Turso: JSON dump
-  const [users, accounts, profile, content, demographics] = await Promise.all([
+  const [users, accounts, profile, content, demographics, contentGoals, researchRuns, trendEvidence, contentIdeas] = await Promise.all([
     dbAll("SELECT id, email, name, role, created_at FROM users"),
     dbAll("SELECT * FROM accounts"),
     dbAll("SELECT * FROM profile_insight"),
     dbAll("SELECT * FROM content_insight"),
     dbAll("SELECT * FROM demographics"),
+    dbAll("SELECT * FROM account_content_goals"),
+    dbAll("SELECT * FROM trend_research_runs"),
+    dbAll("SELECT * FROM trend_evidence"),
+    dbAll("SELECT * FROM content_ideas"),
   ]);
   const dump = {
     generated_at: new Date().toISOString(),
-    schema_version: 1,
+    schema_version: 2,
     warning: "Passwords intentionally excluded. Import via custom script.",
-    users, accounts, profile_insight: profile, content_insight: content, demographics,
+    users,
+    accounts,
+    profile_insight: profile,
+    content_insight: content,
+    demographics,
+    account_content_goals: contentGoals,
+    trend_research_runs: researchRuns,
+    trend_evidence: trendEvidence,
+    content_ideas: contentIdeas,
   };
   await auditLog(user.id, "backup_json", "database");
   const now = new Date().toISOString().slice(0, 10);

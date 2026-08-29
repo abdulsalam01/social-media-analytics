@@ -39,6 +39,8 @@ ADMIN_EMAIL=$(read -p "Admin email: " a && echo "$a")
 ADMIN_PASSWORD=$(read -p "Admin password (min 8): " p && echo "$p")
 SESSION_SECRET=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
 CRON_SECRET=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
+GEMINI_API_KEY=$(read -s -p "Gemini API key: " g && echo "$g")
+GEMINI_MODEL=gemini-flash-lite-latest
 EOF
 mv .env.local.tmp .env.local
 
@@ -63,6 +65,8 @@ SESSION=$(grep '^SESSION_SECRET=' .env.local | cut -d= -f2)
 vercel env add SESSION_SECRET production < <(echo "$SESSION")
 CRON=$(grep '^CRON_SECRET=' .env.local | cut -d= -f2)
 vercel env add CRON_SECRET production < <(echo "$CRON")
+vercel env add GEMINI_API_KEY production < <(grep '^GEMINI_API_KEY=' .env.local | cut -d= -f2)
+vercel env add GEMINI_MODEL production < <(grep '^GEMINI_MODEL=' .env.local | cut -d= -f2)
 vercel env add ADMIN_EMAIL production < <(grep '^ADMIN_EMAIL=' .env.local | cut -d= -f2)
 vercel env add ADMIN_PASSWORD production < <(grep '^ADMIN_PASSWORD=' .env.local | cut -d= -f2)
 

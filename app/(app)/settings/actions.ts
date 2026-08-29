@@ -55,20 +55,26 @@ export async function resetAllData(confirmPhrase: string) {
   if (confirmPhrase !== "RESET SEMUA DATA") {
     return { ok: false as const, error: "Frasa konfirmasi salah" };
   }
-  const before = (await dbGet<{ accounts: number; profile: number; content: number; demographics: number }>(
+  const before = (await dbGet<{ accounts: number; profile: number; content: number; demographics: number; contentIdeas: number; trendEvidence: number }>(
     `SELECT
        (SELECT COUNT(*) FROM accounts) AS accounts,
        (SELECT COUNT(*) FROM profile_insight) AS profile,
        (SELECT COUNT(*) FROM content_insight) AS content,
-       (SELECT COUNT(*) FROM demographics) AS demographics`
+       (SELECT COUNT(*) FROM demographics) AS demographics,
+       (SELECT COUNT(*) FROM content_ideas) AS contentIdeas,
+       (SELECT COUNT(*) FROM trend_evidence) AS trendEvidence`
   ))!;
 
   // Batch DELETEs — CASCADE handles FKs but explicit order ensures correctness
+  await dbRun("DELETE FROM content_ideas");
+  await dbRun("DELETE FROM trend_evidence");
+  await dbRun("DELETE FROM trend_research_runs");
+  await dbRun("DELETE FROM account_content_goals");
   await dbRun("DELETE FROM demographics");
   await dbRun("DELETE FROM content_insight");
   await dbRun("DELETE FROM profile_insight");
   await dbRun("DELETE FROM accounts");
-  await dbRun("DELETE FROM sqlite_sequence WHERE name IN ('accounts','profile_insight','content_insight','demographics')");
+  await dbRun("DELETE FROM sqlite_sequence WHERE name IN ('accounts','profile_insight','content_insight','demographics','trend_research_runs','trend_evidence','content_ideas')");
 
   await auditLog(me.id, "reset_all_data", "system", undefined, before);
 

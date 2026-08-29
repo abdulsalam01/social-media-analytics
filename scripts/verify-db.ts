@@ -10,12 +10,23 @@ const REQUIRED_COLUMNS: Record<string, string[]> = {
     "id", "name", "platform", "handle", "scrape_enabled", "scrape_url",
     "last_scraped_at", "last_scrape_status", "created_at",
   ],
+  account_content_goals: [
+    "account_id", "primary_goal", "target_audience", "brand_voice", "content_pillars",
+    "keywords", "preferred_formats", "preferred_days", "audience_active_hours",
+    "posts_per_week", "timezone", "additional_context", "created_at", "updated_at",
+  ],
   audit_log: ["id", "user_id", "action", "entity", "entity_id", "meta", "at"],
   content_insight: [
     "id", "account_id", "post_date", "title", "link", "shortcode", "profile_visit",
     "likes", "comments", "shares", "saves", "reposts", "follows", "reach",
     "impression", "plays", "engagement", "engagement_rate", "scrape_enabled",
     "created_at", "updated_at",
+  ],
+  content_ideas: [
+    "id", "account_id", "research_run_id", "title", "hook", "fresh_angle",
+    "content_type", "category", "why_factor", "content_outline", "call_to_action",
+    "status", "recommended_at", "schedule_reason", "confidence_score", "source_ids",
+    "ai_model", "created_by", "created_at", "updated_at", "published_at",
   ],
   demographics: ["id", "account_id", "week_start", "kind", "label", "value"],
   login_attempts: ["id", "email", "ip", "success", "at"],
@@ -24,6 +35,14 @@ const REQUIRED_COLUMNS: Record<string, string[]> = {
     "followers_growth", "new_followers", "created_at", "updated_at",
   ],
   scrape_log: ["id", "account_id", "scraped_at", "status", "posts_found", "posts_updated", "error"],
+  trend_evidence: [
+    "id", "run_id", "provider", "source_name", "title", "url", "excerpt",
+    "published_at", "popularity_score", "raw_metrics", "created_at",
+  ],
+  trend_research_runs: [
+    "id", "account_id", "query", "keywords", "status", "provider_summary",
+    "evidence_count", "error", "created_by", "started_at", "completed_at",
+  ],
   users: ["id", "email", "password_hash", "name", "role", "created_at"],
 };
 
@@ -37,11 +56,16 @@ const REQUIRED_INDEXES = [
   "idx_ci_account_reach",
   "idx_ci_created",
   "idx_ci_title",
+  "idx_content_ideas_account",
+  "idx_content_ideas_schedule",
+  "idx_content_ideas_status",
   "idx_demo_lookup",
   "idx_login_email_at",
   "idx_login_ip_at",
   "idx_pi_account_date",
   "idx_scrape_log_account",
+  "idx_trend_evidence_run",
+  "idx_trend_runs_account",
 ];
 
 async function main() {

@@ -7,7 +7,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 if [ ! -f .env.local ]; then
-  echo "Error: .env.local wajib ada. Isi TURSO_*, SESSION_SECRET, CRON_SECRET, ADMIN_*."
+  echo "Error: .env.local wajib ada. Isi TURSO_*, SESSION_SECRET, CRON_SECRET, GEMINI_*, ADMIN_*."
   exit 1
 fi
 
@@ -26,7 +26,7 @@ if [ ! -d .vercel ]; then
 fi
 
 # Kunci env yang dibutuhkan
-REQUIRED=(TURSO_DATABASE_URL TURSO_AUTH_TOKEN SESSION_SECRET CRON_SECRET ADMIN_EMAIL ADMIN_PASSWORD)
+REQUIRED=(TURSO_DATABASE_URL TURSO_AUTH_TOKEN SESSION_SECRET CRON_SECRET GEMINI_API_KEY GEMINI_MODEL ADMIN_EMAIL ADMIN_PASSWORD)
 for k in "${REQUIRED[@]}"; do
   if [ -z "${!k:-}" ]; then
     echo "Error: $k belum ada di .env.local"
@@ -34,7 +34,7 @@ for k in "${REQUIRED[@]}"; do
   fi
 done
 
-echo "==> Sync 6 env vars ke Vercel (production + preview + development)"
+echo "==> Sync 8 env vars ke Vercel (production + preview + development)"
 for k in "${REQUIRED[@]}"; do
   # Remove existing if any (idempotent)
   vercel env rm "$k" production --yes >/dev/null 2>&1 || true

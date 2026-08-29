@@ -10,6 +10,7 @@ export function middleware(req: NextRequest) {
   if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) return NextResponse.next();
   if (pathname.startsWith("/api/") || pathname === "/" || pathname.startsWith("/dashboard") ||
       pathname.startsWith("/accounts") || pathname.startsWith("/input") ||
+      pathname.startsWith("/ideas") ||
       pathname.startsWith("/report") || pathname.startsWith("/settings") ||
       pathname.startsWith("/compare") || pathname.startsWith("/help") ||
       pathname.startsWith("/content") || pathname.startsWith("/scraper")) {

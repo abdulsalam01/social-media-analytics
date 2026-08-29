@@ -137,6 +137,9 @@ export async function txRun(tx: Transaction, sql: string, args: InValue[] = []):
 
 export type Platform = "instagram" | "tiktok";
 export type Role = "admin" | "editor" | "viewer";
+export type ContentGoal = "growth" | "engagement" | "reach" | "awareness" | "leads" | "sales";
+export type ContentIdeaType = "carousel" | "video" | "kombinasi";
+export type ContentIdeaStatus = "ide" | "dikembangkan" | "siap" | "terjadwal" | "terbit" | "diarsipkan";
 
 export type Account = {
   id: number;
@@ -188,6 +191,61 @@ export type ContentInsight = {
   engagement_rate: number;
   created_at: string;
   updated_at: string;
+};
+
+export type AccountContentGoals = {
+  account_id: number;
+  primary_goal: ContentGoal;
+  target_audience: string;
+  brand_voice: string;
+  content_pillars: string;
+  keywords: string;
+  preferred_formats: string;
+  preferred_days: string;
+  audience_active_hours: string;
+  posts_per_week: number;
+  timezone: string;
+  additional_context: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TrendEvidence = {
+  id: number;
+  run_id: number;
+  provider: string;
+  source_name: string;
+  title: string;
+  url: string;
+  excerpt: string | null;
+  published_at: string | null;
+  popularity_score: number;
+  raw_metrics: string;
+  created_at: string;
+};
+
+export type ContentIdea = {
+  id: number;
+  account_id: number;
+  research_run_id: number | null;
+  title: string;
+  hook: string;
+  fresh_angle: string;
+  content_type: ContentIdeaType;
+  category: string;
+  why_factor: string;
+  content_outline: string;
+  call_to_action: string;
+  status: ContentIdeaStatus;
+  recommended_at: string | null;
+  schedule_reason: string | null;
+  confidence_score: number;
+  source_ids: string;
+  ai_model: string;
+  created_by: number | null;
+  created_at: string;
+  updated_at: string;
+  published_at: string | null;
 };
 
 /** True if running against remote Turso; false if local file. Used for backup route to know behavior. */

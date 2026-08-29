@@ -8,6 +8,7 @@ Dashboard analytics sosial media buat Instagram & TikTok. Ganti kerjaan manual d
 
 - Login aman (bcrypt + session cookie httpOnly + rate-limit brute-force)
 - Multi-akun (kelola banyak brand Instagram + TikTok sekaligus)
+- Ide Konten AI: riset tren bersumber, ide Bahasa Indonesia, brief produksi, dan rekomendasi jadwal tanpa bentrok
 - Input data mingguan lewat form ramah non-teknis
 - Dashboard grafik: pertumbuhan followers, engagement, top konten, ER by reach/followers/play
 - Laporan mingguan siap cetak / Save as PDF
@@ -71,8 +72,8 @@ socmed-insight/
 | Role | Bisa |
 |------|------|
 | Admin | Semua akses + kelola pengguna + backup |
-| Editor | Input & ubah data, lihat dashboard |
-| Viewer | Hanya lihat dashboard & laporan |
+| Editor | Input & ubah data, atur goal, riset tren, dan kelola pipeline ide |
+| Viewer | Lihat dashboard, laporan, bukti tren, dan ide |
 
 ## Backup Data
 

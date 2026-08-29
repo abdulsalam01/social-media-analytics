@@ -61,6 +61,8 @@ ADMIN_EMAIL=admin@perusahaan.com
 ADMIN_PASSWORD=UbahPasswordKuat123!
 SESSION_SECRET=$(openssl rand -hex 32)
 CRON_SECRET=$(openssl rand -hex 32)
+GEMINI_API_KEY=key-dari-google-ai-studio
+GEMINI_MODEL=gemini-flash-lite-latest
 EOF
 
 # Run migration + admin
@@ -97,6 +99,8 @@ Di [vercel.com/new](https://vercel.com/new):
 | `TURSO_AUTH_TOKEN`    | `eyJ...`                         | All      |
 | `SESSION_SECRET`      | (hasil `openssl rand -hex 32`)   | All      |
 | `CRON_SECRET`         | (hasil `openssl rand -hex 32`)   | All      |
+| `GEMINI_API_KEY`      | (key dari Google AI Studio)      | All      |
+| `GEMINI_MODEL`        | `gemini-flash-lite-latest`       | All      |
 | `ADMIN_EMAIL`         | admin@perusahaan.com             | All      |
 | `ADMIN_PASSWORD`      | (password kuat)                  | All      |
 
@@ -110,6 +114,8 @@ vercel env add TURSO_DATABASE_URL production
 vercel env add TURSO_AUTH_TOKEN production
 vercel env add SESSION_SECRET production
 vercel env add CRON_SECRET production
+vercel env add GEMINI_API_KEY production
+vercel env add GEMINI_MODEL production
 vercel --prod
 ```
 
@@ -165,6 +171,8 @@ turso db shell socmed-insight-prod ".dump" > backup-$(date +%F).sql
 **Error: "SESSION_SECRET wajib diisi"** → Sama, cek env var.
 
 **Halaman kosong / 500** → Cek Vercel logs (`vercel logs <url>`). Biasanya env var missing atau schema belum di-init.
+
+**Ide Konten AI gagal** → Pastikan `GEMINI_API_KEY` dan `GEMINI_MODEL` tersedia di environment yang sedang dipakai. Token X bersifat opsional; tanpa `X_BEARER_TOKEN`, referensi X masih dapat muncul melalui Google Search grounding.
 
 **Login gagal terus** → Admin belum di-create. Run `npm run db:init` dari lokal dengan env pointing ke Turso.
 

@@ -96,6 +96,72 @@ const TABLE_STATEMENTS = [
      posts_updated INTEGER NOT NULL DEFAULT 0,
      error         TEXT
    )`,
+  `CREATE TABLE IF NOT EXISTS account_content_goals (
+     account_id            INTEGER PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
+     primary_goal          TEXT NOT NULL CHECK(primary_goal IN ('growth','engagement','reach','awareness','leads','sales')),
+     target_audience       TEXT NOT NULL,
+     brand_voice           TEXT NOT NULL,
+     content_pillars       TEXT NOT NULL DEFAULT '[]',
+     keywords              TEXT NOT NULL DEFAULT '[]',
+     preferred_formats     TEXT NOT NULL DEFAULT '["video"]',
+     preferred_days       TEXT NOT NULL DEFAULT '[1,2,3,4,5]',
+     audience_active_hours TEXT NOT NULL DEFAULT '[]',
+     posts_per_week        INTEGER NOT NULL DEFAULT 3 CHECK(posts_per_week BETWEEN 1 AND 14),
+     timezone              TEXT NOT NULL DEFAULT 'Asia/Jakarta',
+     additional_context    TEXT,
+     created_at            TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+     updated_at            TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+   )`,
+  `CREATE TABLE IF NOT EXISTS trend_research_runs (
+     id               INTEGER PRIMARY KEY AUTOINCREMENT,
+     account_id       INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+     query            TEXT NOT NULL,
+     keywords         TEXT NOT NULL DEFAULT '[]',
+     status           TEXT NOT NULL CHECK(status IN ('running','completed','failed')),
+     provider_summary TEXT NOT NULL DEFAULT '{}',
+     evidence_count   INTEGER NOT NULL DEFAULT 0,
+     error            TEXT,
+     created_by       INTEGER REFERENCES users(id) ON DELETE SET NULL,
+     started_at       TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+     completed_at     TEXT
+   )`,
+  `CREATE TABLE IF NOT EXISTS trend_evidence (
+     id               INTEGER PRIMARY KEY AUTOINCREMENT,
+     run_id           INTEGER NOT NULL REFERENCES trend_research_runs(id) ON DELETE CASCADE,
+     provider         TEXT NOT NULL,
+     source_name      TEXT NOT NULL,
+     title            TEXT NOT NULL,
+     url              TEXT NOT NULL,
+     excerpt          TEXT,
+     published_at     TEXT,
+     popularity_score REAL NOT NULL DEFAULT 0,
+     raw_metrics      TEXT NOT NULL DEFAULT '{}',
+     created_at       TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+     UNIQUE(run_id, url)
+   )`,
+  `CREATE TABLE IF NOT EXISTS content_ideas (
+     id               INTEGER PRIMARY KEY AUTOINCREMENT,
+     account_id       INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+     research_run_id  INTEGER REFERENCES trend_research_runs(id) ON DELETE SET NULL,
+     title            TEXT NOT NULL,
+     hook             TEXT NOT NULL,
+     fresh_angle      TEXT NOT NULL,
+     content_type     TEXT NOT NULL CHECK(content_type IN ('carousel','video','kombinasi')),
+     category         TEXT NOT NULL,
+     why_factor       TEXT NOT NULL,
+     content_outline  TEXT NOT NULL,
+     call_to_action   TEXT NOT NULL,
+     status           TEXT NOT NULL DEFAULT 'ide' CHECK(status IN ('ide','dikembangkan','siap','terjadwal','terbit','diarsipkan')),
+     recommended_at   TEXT,
+     schedule_reason  TEXT,
+     confidence_score REAL NOT NULL DEFAULT 0,
+     source_ids       TEXT NOT NULL DEFAULT '[]',
+     ai_model         TEXT NOT NULL,
+     created_by       INTEGER REFERENCES users(id) ON DELETE SET NULL,
+     created_at       TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+     updated_at       TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+     published_at     TEXT
+   )`,
 ] as const;
 
 const ADDITIVE_COLUMNS = [
@@ -127,6 +193,11 @@ const INDEX_STATEMENTS = [
   "CREATE INDEX IF NOT EXISTS idx_login_email_at ON login_attempts(email, at DESC)",
   "CREATE INDEX IF NOT EXISTS idx_login_ip_at ON login_attempts(ip, at DESC)",
   "CREATE INDEX IF NOT EXISTS idx_scrape_log_account ON scrape_log(account_id, scraped_at DESC)",
+  "CREATE INDEX IF NOT EXISTS idx_trend_runs_account ON trend_research_runs(account_id, started_at DESC)",
+  "CREATE INDEX IF NOT EXISTS idx_trend_evidence_run ON trend_evidence(run_id, popularity_score DESC)",
+  "CREATE INDEX IF NOT EXISTS idx_content_ideas_account ON content_ideas(account_id, created_at DESC)",
+  "CREATE INDEX IF NOT EXISTS idx_content_ideas_status ON content_ideas(account_id, status, recommended_at)",
+  "CREATE INDEX IF NOT EXISTS idx_content_ideas_schedule ON content_ideas(account_id, recommended_at)",
 ] as const;
 
 let migrationPromise: Promise<void> | null = null;

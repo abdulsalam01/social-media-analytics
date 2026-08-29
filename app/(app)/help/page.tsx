@@ -1,4 +1,4 @@
-import { BookOpen, PlayCircle, ShieldCheck, Download, LifeBuoy } from "lucide-react";
+import { BookOpen, PlayCircle, ShieldCheck, Download, LifeBuoy, Lightbulb } from "lucide-react";
 
 export default function HelpPage() {
   return (
@@ -41,7 +41,20 @@ export default function HelpPage() {
         ]} />
       </Section>
 
-      <Section icon={<ShieldCheck className="w-5 h-5" />} title="4. Keamanan Data">
+      <Section icon={<Lightbulb className="w-5 h-5" />} title="4. Riset & Ide Konten AI">
+        <Steps items={[
+          "Buka Ide Konten AI lalu pilih akun Instagram atau TikTok.",
+          "Isi Account Goals: goal utama, target audiens, brand voice, pilar konten, keyword, dan kemampuan produksi tim.",
+          "Masukkan jam aktif audiens dari Instagram Insights atau TikTok Business Suite agar rekomendasi waktu lebih personal.",
+          "Klik Buat Ide. Sistem mengumpulkan referensi terbaru, Gemini menyusun ide Bahasa Indonesia, lalu scheduler memilih slot tanpa bentrok.",
+          "Buka bukti sumber sebelum produksi, lalu ubah status ide dari Ide sampai Sudah terbit.",
+        ]} />
+        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3 mt-4">
+          Trend score dan output AI membantu prioritas, bukan jaminan viral. Tim tetap wajib memeriksa konteks, fakta, klaim, dan hak cipta dari sumber yang ditautkan.
+        </p>
+      </Section>
+
+      <Section icon={<ShieldCheck className="w-5 h-5" />} title="5. Keamanan Data">
         <Steps items={[
           "Ganti password default admin setelah instalasi.",
           "Backup database rutin dari menu Pengaturan → Backup.",
@@ -50,7 +63,7 @@ export default function HelpPage() {
         ]} />
       </Section>
 
-      <Section icon={<LifeBuoy className="w-5 h-5" />} title="5. Kalau Ada Masalah">
+      <Section icon={<LifeBuoy className="w-5 h-5" />} title="6. Kalau Ada Masalah">
         <p className="text-sm text-slate-600">
           Cek dulu apakah data sudah lengkap diinput. Kalau angka masih 0, kemungkinan
           data belum masuk atau tanggal salah. Hubungi admin kalau butuh reset password

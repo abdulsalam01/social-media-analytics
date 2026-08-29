@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Users, PencilLine, FileBarChart2, Settings, HelpCircle, GitCompareArrows, ScanSearch } from "lucide-react";
+import { LayoutDashboard, Users, PencilLine, FileBarChart2, Settings, HelpCircle, GitCompareArrows, Lightbulb, ScanSearch } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 
@@ -10,6 +10,7 @@ type Role = "admin" | "editor" | "viewer";
 const nav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, hint: "Ringkasan performa", roles: ["admin", "editor", "viewer"] },
   { href: "/accounts", label: "Akun Sosmed", icon: Users, hint: "Kelola akun", roles: ["admin", "editor", "viewer"] },
+  { href: "/ideas", label: "Ide Konten AI", icon: Lightbulb, hint: "Riset tren + kalender ide", roles: ["admin", "editor", "viewer"] },
   { href: "/input", label: "Input Data", icon: PencilLine, hint: "Masukin data mingguan", roles: ["admin", "editor"] },
   { href: "/compare", label: "Bandingkan Brand", icon: GitCompareArrows, hint: "Head-to-head brand", roles: ["admin", "editor", "viewer"] },
   { href: "/report", label: "Laporan", icon: FileBarChart2, hint: "Report mingguan + PDF", roles: ["admin", "editor", "viewer"] },
