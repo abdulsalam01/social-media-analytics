@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Users, Heart, Eye, TrendingUp, MessageCircle, Share2, Bookmark, Activity } from "lucide-react";
-import { dbAll, Account } from "@/lib/db";
+import { dbAll } from "@/lib/db";
+import { getAccessibleAccounts } from "@/lib/account-access";
+import { requirePageRole } from "@/lib/session";
 import { computeWeeklySummary, growthDelta } from "@/lib/calc";
 import { weekStartOf, weekLabel, monthRange, currentMonth } from "@/lib/dates";
 import { fmtNum, fmtPct, fmtDate } from "@/lib/utils";
@@ -54,7 +56,8 @@ export default async function DashboardPage({
   }>;
 }) {
   const sp = await searchParams;
-  const accounts = await dbAll<Account>("SELECT * FROM accounts ORDER BY name ASC");
+  const user = await requirePageRole(["admin", "editor", "viewer"]);
+  const accounts = await getAccessibleAccounts(user);
 
   if (accounts.length === 0) {
     return (
@@ -64,10 +67,10 @@ export default async function DashboardPage({
           <p className="text-sm text-slate-500">Ringkasan performa sosial media kamu.</p>
         </div>
         <EmptyState
-          title="Yuk, mulai dari sini!"
-          description="Daftar akun sosmed pertamamu untuk melihat dashboard analytics."
-          ctaHref="/accounts/new"
-          ctaLabel="Tambah Akun Pertama"
+          title={user.role === "admin" ? "Yuk, mulai dari sini!" : "Belum ada akun yang ditugaskan"}
+          description={user.role === "admin" ? "Daftar akun sosmed pertamamu untuk melihat dashboard analytics." : "Minta admin menugaskan minimal satu akun ke pengguna kamu."}
+          ctaHref={user.role === "admin" ? "/accounts/new" : undefined}
+          ctaLabel={user.role === "admin" ? "Tambah Akun Pertama" : undefined}
         />
       </div>
     );
@@ -179,9 +182,9 @@ export default async function DashboardPage({
           <Link href={`/report?account=${account.id}&week=${currentWeek}`} className="btn-secondary">
             Lihat Laporan
           </Link>
-          <Link href={`/input?account=${account.id}`} className="btn-primary">
+          {user.role !== "viewer" && <Link href={`/input?account=${account.id}`} className="btn-primary">
             Input Data
-          </Link>
+          </Link>}
         </div>
       </div>
 

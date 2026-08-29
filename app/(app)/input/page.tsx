@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { dbAll, dbGet, Account } from "@/lib/db";
+import { dbAll, dbGet } from "@/lib/db";
 import { requirePageRole } from "@/lib/session";
 import EmptyState from "@/components/EmptyState";
 import PlatformBadge from "@/components/PlatformBadge";
 import InputTabs from "./InputTabs";
 import AccountPicker from "@/components/AccountPicker";
 import EntriesList from "./EntriesList";
+import { getAccessibleAccounts } from "@/lib/account-access";
 
 export const dynamic = "force-dynamic";
 
@@ -16,16 +17,16 @@ export default async function InputPage({
 }: {
   searchParams: Promise<{ account?: string; view?: string; p?: string; c?: string }>;
 }) {
-  await requirePageRole(["admin", "editor"]);
+  const user = await requirePageRole(["admin", "editor"]);
   const sp = await searchParams;
-  const accounts = await dbAll<Account>("SELECT * FROM accounts ORDER BY name ASC");
+  const accounts = await getAccessibleAccounts(user);
   if (accounts.length === 0) {
     return (
       <EmptyState
-        title="Belum ada akun terdaftar"
-        description="Tambah akun sosmed dulu sebelum input data."
-        ctaHref="/accounts/new"
-        ctaLabel="Tambah Akun"
+        title={user.role === "admin" ? "Belum ada akun terdaftar" : "Belum ada akun yang ditugaskan"}
+        description={user.role === "admin" ? "Tambah akun sosmed dulu sebelum input data." : "Minta admin menugaskan akun sebelum kamu menginput data."}
+        ctaHref={user.role === "admin" ? "/accounts/new" : undefined}
+        ctaLabel={user.role === "admin" ? "Tambah Akun" : undefined}
       />
     );
   }

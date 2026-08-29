@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   AlertTriangle, CalendarClock, ChevronDown, Clock3, Database,
-  ExternalLink, Info, Lightbulb, Link2, Loader2, Plus, Save, Search, Target, X,
+  ExternalLink, Lightbulb, Link2, Loader2, Save, Search, Target,
 } from "lucide-react";
 import { useToast } from "@/components/Toast";
 import { cn } from "@/lib/utils";
@@ -46,12 +46,6 @@ const GOALS: Array<{ value: ContentGoal; label: string; description: string }> =
   { value: "sales", label: "Sales", description: "Mendorong tindakan pembelian" },
 ];
 
-const DAYS = [
-  { value: 1, label: "Sen" }, { value: 2, label: "Sel" }, { value: 3, label: "Rab" },
-  { value: 4, label: "Kam" }, { value: 5, label: "Jum" }, { value: 6, label: "Sab" },
-  { value: 0, label: "Min" },
-];
-
 const FORMAT_LABELS: Record<ContentIdeaType, string> = {
   carousel: "Carousel",
   video: "Video",
@@ -75,6 +69,13 @@ const STATUS_CLASSES: Record<ContentIdeaStatus, string> = {
   terbit: "bg-emerald-50 text-emerald-700 border-emerald-200",
   diarsipkan: "bg-slate-100 text-slate-600 border-slate-200",
 };
+
+const VOICE_OPTIONS = [
+  "Informatif, hangat, jelas, dan tidak berlebihan",
+  "Santai, akrab, ringan, dan relevan",
+  "Profesional, tegas, terpercaya, dan ringkas",
+  "Persuasif, energik, berorientasi tindakan, tanpa clickbait",
+];
 
 function splitTags(value: string): string[] {
   return [...new Set(value.split(/[,\n]/).map((item) => item.trim()).filter(Boolean))];
@@ -122,54 +123,30 @@ function GoalSettings({ accountId, initial, canEdit, onKeywordsSaved }: {
 }) {
   const [open, setOpen] = useState(!initial.configured);
   const [goal, setGoal] = useState(initial);
-  const [pillars, setPillars] = useState(initial.contentPillars.join(", "));
-  const [keywords, setKeywords] = useState(initial.keywords.join(", "));
+  const [topics, setTopics] = useState((initial.keywords.length ? initial.keywords : initial.contentPillars).join(", "));
   const [pending, start] = useTransition();
   const toast = useToast();
 
-  function toggleFormat(format: ContentIdeaType) {
-    setGoal((current) => ({
-      ...current,
-      preferredFormats: current.preferredFormats.includes(format)
-        ? current.preferredFormats.filter((item) => item !== format)
-        : [...current.preferredFormats, format],
-    }));
-  }
-
-  function toggleDay(day: number) {
-    setGoal((current) => ({
-      ...current,
-      preferredDays: current.preferredDays.includes(day)
-        ? current.preferredDays.filter((item) => item !== day)
-        : [...current.preferredDays, day],
-    }));
-  }
-
-  function addHour() {
-    if (goal.audienceActiveHours.length >= 6) return;
-    setGoal((current) => ({ ...current, audienceActiveHours: [...current.audienceActiveHours, "19:00"] }));
-  }
-
   function save() {
     start(async () => {
-      const keywordList = splitTags(keywords);
+      const topicList = splitTags(topics);
       const result = await saveContentGoals({
         accountId,
         primaryGoal: goal.primaryGoal,
         targetAudience: goal.targetAudience,
         brandVoice: goal.brandVoice,
-        contentPillars: splitTags(pillars),
-        keywords: keywordList,
-        preferredFormats: goal.preferredFormats,
+        contentPillars: topicList,
+        keywords: topicList,
+        preferredFormats: [goal.preferredFormats[0] ?? "video"],
         preferredDays: goal.preferredDays,
-        audienceActiveHours: goal.audienceActiveHours.filter(Boolean),
+        audienceActiveHours: goal.audienceActiveHours[0] ? [goal.audienceActiveHours[0]] : [],
         postsPerWeek: goal.postsPerWeek,
         timezone: goal.timezone,
         additionalContext: goal.additionalContext || null,
       });
       if (!result.ok) return toast("error", result.error);
       setGoal((current) => ({ ...current, configured: true }));
-      onKeywordsSaved(keywordList);
+      onKeywordsSaved(topicList);
       toast("success", "Account Goals berhasil disimpan.");
       setOpen(false);
     });
@@ -192,104 +169,53 @@ function GoalSettings({ accountId, initial, canEdit, onKeywordsSaved }: {
       </button>
 
       {open && (
-        <div className="card-bd space-y-5">
+        <div className="card-bd space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="label">Goal utama</label>
+              <select className="input" disabled={!canEdit} value={goal.primaryGoal} onChange={(event) => setGoal((current) => ({ ...current, primaryGoal: event.target.value as ContentGoal }))}>
+                {GOALS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label">Format utama</label>
+              <select className="input" disabled={!canEdit} value={goal.preferredFormats[0] ?? "video"} onChange={(event) => setGoal((current) => ({ ...current, preferredFormats: [event.target.value as ContentIdeaType] }))}>
+                {(Object.keys(FORMAT_LABELS) as ContentIdeaType[]).map((format) => <option key={format} value={format}>{FORMAT_LABELS[format]}</option>)}
+              </select>
+            </div>
+          </div>
+
           <div>
-            <label className="label">Goal utama akun</label>
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
-              {GOALS.map((item) => (
-                <button key={item.value} type="button" disabled={!canEdit} onClick={() => setGoal((current) => ({ ...current, primaryGoal: item.value }))}
-                  className={cn("rounded-xl border p-3 text-left transition", goal.primaryGoal === item.value ? "border-brand-500 bg-brand-50" : "border-slate-200 hover:border-slate-300")}
-                >
-                  <div className="text-sm font-semibold text-slate-900">{item.label}</div>
-                  <div className="text-[11px] text-slate-500 mt-0.5">{item.description}</div>
-                </button>
-              ))}
-            </div>
+            <label className="label">Target audiens</label>
+            <input className="input" disabled={!canEdit} value={goal.targetAudience} onChange={(event) => setGoal((current) => ({ ...current, targetAudience: event.target.value }))} placeholder="Contoh: Pemilik UMKM kuliner usia 25–40 di kota besar" />
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div>
-              <label className="label">Target audiens</label>
-              <textarea className="input min-h-24" disabled={!canEdit} value={goal.targetAudience} onChange={(event) => setGoal((current) => ({ ...current, targetAudience: event.target.value }))} placeholder="Contoh: Pemilik UMKM kuliner usia 25–40 di kota besar yang ingin meningkatkan repeat order." />
-            </div>
-            <div>
-              <label className="label">Gaya bahasa / brand voice</label>
-              <textarea className="input min-h-24" disabled={!canEdit} value={goal.brandVoice} onChange={(event) => setGoal((current) => ({ ...current, brandVoice: event.target.value }))} placeholder="Contoh: edukatif, hangat, praktis, tidak menggurui." />
-            </div>
-            <div>
-              <label className="label">Pilar / kategori konten</label>
-              <textarea className="input min-h-20" disabled={!canEdit} value={pillars} onChange={(event) => setPillars(event.target.value)} placeholder="Edukasi, studi kasus, behind the scenes, produk" />
-              <div className="hint">Pisahkan dengan koma atau baris baru.</div>
-            </div>
-            <div>
-              <label className="label">Keyword riset utama</label>
-              <textarea className="input min-h-20" disabled={!canEdit} value={keywords} onChange={(event) => setKeywords(event.target.value)} placeholder="social media analytics, UMKM, engagement Instagram" />
-              <div className="hint">Semakin spesifik, bukti tren semakin relevan.</div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-            <div>
-              <label className="label">Format yang dapat diproduksi tim</label>
-              <div className="flex gap-2 flex-wrap">
-                {(Object.keys(FORMAT_LABELS) as ContentIdeaType[]).map((format) => (
-                  <button key={format} type="button" disabled={!canEdit} onClick={() => toggleFormat(format)} className={cn("btn-secondary !py-1.5", goal.preferredFormats.includes(format) && "!border-brand-500 !bg-brand-50 !text-brand-700")}>{FORMAT_LABELS[format]}</button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <label className="label">Hari posting yang diperbolehkan</label>
-              <div className="flex gap-1.5 flex-wrap">
-                {DAYS.map((day) => (
-                  <button key={day.value} type="button" disabled={!canEdit} onClick={() => toggleDay(day.value)} className={cn("w-10 h-9 rounded-lg border text-xs font-medium", goal.preferredDays.includes(day.value) ? "border-brand-500 bg-brand-50 text-brand-700" : "border-slate-200 text-slate-500")}>{day.label}</button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
-            <div className="flex items-start gap-2">
-              <Info className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
-              <div className="text-xs text-blue-800">
-                <div className="font-semibold mb-1">Jam aktif audiens — data paling penting untuk “golden time”</div>
-                Instagram dan TikTok tidak memberi satu jam universal untuk semua akun. Masukkan jam puncak dari Instagram Insights / TikTok Business Suite. Jika kosong, sistem memakai baseline eksperimen platform lalu belajar dari performa hari akun.
-                <div className="mt-2 flex gap-3 flex-wrap">
-                  <a href="https://www.postman.com/meta/instagram/folder/23987686-f659d7d1-d74c-44e4-9192-9b1e8694c511" target="_blank" rel="noreferrer" className="font-medium underline">Referensi Instagram Insights</a>
-                  <a href="https://ads.tiktok.com/resources/help/article/navigate-web-business-suite?lang=id" target="_blank" rel="noreferrer" className="font-medium underline">Referensi TikTok Analytics</a>
-                </div>
-              </div>
-            </div>
-            <div className="mt-3 flex gap-2 flex-wrap items-center">
-              {goal.audienceActiveHours.map((hour, index) => (
-                <div key={`${index}-${hour}`} className="flex items-center gap-1">
-                  <input type="time" disabled={!canEdit} className="input !w-32" value={hour} onChange={(event) => setGoal((current) => ({ ...current, audienceActiveHours: current.audienceActiveHours.map((item, itemIndex) => itemIndex === index ? event.target.value : item) }))} />
-                  {canEdit && <button type="button" className="btn-ghost !p-2" onClick={() => setGoal((current) => ({ ...current, audienceActiveHours: current.audienceActiveHours.filter((_, itemIndex) => itemIndex !== index) }))}><X className="w-4 h-4" /></button>}
-                </div>
-              ))}
-              {canEdit && goal.audienceActiveHours.length < 6 && <button type="button" onClick={addHour} className="btn-secondary !py-1.5"><Plus className="w-3 h-3" /> Tambah jam</button>}
-            </div>
+          <div>
+            <label className="label">Topik & keyword utama</label>
+            <input className="input" disabled={!canEdit} value={topics} onChange={(event) => setTopics(event.target.value)} placeholder="UMKM, pemasaran digital, Instagram Reels" />
+            <div className="hint">Pisahkan dengan koma. Dipakai sekaligus sebagai pilar konten dan keyword riset.</div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="label">Target post / minggu</label>
+              <label className="label">Gaya bahasa</label>
+              <select className="input" disabled={!canEdit} value={goal.brandVoice} onChange={(event) => setGoal((current) => ({ ...current, brandVoice: event.target.value }))}>
+                {!VOICE_OPTIONS.includes(goal.brandVoice) && <option value={goal.brandVoice}>{goal.brandVoice}</option>}
+                {VOICE_OPTIONS.map((voice) => <option key={voice} value={voice}>{voice.split(",")[0]}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label">Post / minggu</label>
               <input type="number" min={1} max={14} className="input" disabled={!canEdit} value={goal.postsPerWeek} onChange={(event) => setGoal((current) => ({ ...current, postsPerWeek: Number(event.target.value) }))} />
             </div>
             <div>
-              <label className="label">Zona waktu audiens</label>
-              <select className="input" disabled={!canEdit} value={goal.timezone} onChange={(event) => setGoal((current) => ({ ...current, timezone: event.target.value as GoalFormData["timezone"] }))}>
-                <option value="Asia/Jakarta">WIB — Jakarta</option>
-                <option value="Asia/Makassar">WITA — Makassar</option>
-                <option value="Asia/Jayapura">WIT — Jayapura</option>
-              </select>
-            </div>
-            <div className="sm:col-span-1">
-              <label className="label">Konteks tambahan</label>
-              <input className="input" disabled={!canEdit} value={goal.additionalContext} onChange={(event) => setGoal((current) => ({ ...current, additionalContext: event.target.value }))} placeholder="Campaign, batasan, produk prioritas…" />
+              <label className="label">Jam aktif utama <span className="font-normal text-slate-400">(opsional)</span></label>
+              <input type="time" className="input" disabled={!canEdit} value={goal.audienceActiveHours[0] ?? ""} onChange={(event) => setGoal((current) => ({ ...current, audienceActiveHours: event.target.value ? [event.target.value] : [] }))} />
+              <div className="hint">Ambil dari Insights akun.</div>
             </div>
           </div>
 
-          {canEdit && <button type="button" onClick={save} disabled={pending} className="btn-primary"><Save className="w-4 h-4" /> {pending ? "Menyimpan…" : "Simpan Account Goals"}</button>}
+          {canEdit && <button type="button" onClick={save} disabled={pending || splitTags(topics).length === 0} className="btn-primary"><Save className="w-4 h-4" /> {pending ? "Menyimpan…" : "Simpan Goals"}</button>}
         </div>
       )}
     </div>

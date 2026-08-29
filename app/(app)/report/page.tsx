@@ -1,4 +1,4 @@
-import { dbAll, Account } from "@/lib/db";
+import { dbAll } from "@/lib/db";
 import { computeRangeSummary, growthDelta } from "@/lib/calc";
 import { weekStartOf, weekLabel, monthRange, currentMonth } from "@/lib/dates";
 import Link from "next/link";
@@ -10,6 +10,8 @@ import PrintButton from "./PrintButton";
 import PeriodPicker from "./PeriodPicker";
 import ReportSubNav from "./ReportSubNav";
 import { TrendingUp, TrendingDown, Minus, ExternalLink } from "lucide-react";
+import { getAccessibleAccounts } from "@/lib/account-access";
+import { requirePageRole } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -74,14 +76,15 @@ export default async function ReportPage({
   searchParams: Promise<{ account?: string; mode?: string; week?: string; month?: string; from?: string; to?: string }>;
 }) {
   const sp = await searchParams;
-  const accounts = await dbAll<Account>("SELECT * FROM accounts ORDER BY name ASC");
+  const user = await requirePageRole(["admin", "editor", "viewer"]);
+  const accounts = await getAccessibleAccounts(user);
   if (accounts.length === 0) {
     return (
       <EmptyState
-        title="Belum ada akun"
-        description="Tambah akun sosmed dulu."
-        ctaHref="/accounts/new"
-        ctaLabel="Tambah Akun"
+        title={user.role === "admin" ? "Belum ada akun" : "Belum ada akun yang ditugaskan"}
+        description={user.role === "admin" ? "Tambah akun sosmed dulu." : "Minta admin menugaskan akun agar laporan dapat dilihat."}
+        ctaHref={user.role === "admin" ? "/accounts/new" : undefined}
+        ctaLabel={user.role === "admin" ? "Tambah Akun" : undefined}
       />
     );
   }

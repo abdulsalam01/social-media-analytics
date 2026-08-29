@@ -9,11 +9,12 @@ import { useToast } from "@/components/Toast";
 import DateField from "@/components/DateField";
 
 export default function DetailActions({
-  content, account, backHref,
+  content, account, backHref, canEdit,
 }: {
   content: ContentInsight;
   account: Account;
   backHref: string;
+  canEdit: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [pending, start] = useTransition();
@@ -83,17 +84,17 @@ export default function DetailActions({
         <Link href={`/dashboard?account=${account.id}`} className="btn-ghost">
           <LayoutDashboard className="w-4 h-4" /> Dashboard Akun
         </Link>
-        <div className="flex items-center gap-2">
+        {canEdit && <div className="flex items-center gap-2">
           <button className="btn-secondary" onClick={() => setEditing(true)}>
             <Pencil className="w-4 h-4" /> Edit Konten
           </button>
           <button className="btn-danger" onClick={onDelete} disabled={pending}>
             <Trash2 className="w-4 h-4" /> Hapus
           </button>
-        </div>
+        </div>}
       </div>
 
-      {editing && (
+      {canEdit && editing && (
         <Modal title="Edit Konten" onClose={() => setEditing(false)}>
           <form onSubmit={onSave} className="space-y-4">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

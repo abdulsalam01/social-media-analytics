@@ -1,4 +1,3 @@
-import { dbAll, Account } from "@/lib/db";
 import EmptyState from "@/components/EmptyState";
 import Link from "next/link";
 import CompareFilters from "./CompareFilters";
@@ -7,6 +6,8 @@ import CompareCharts from "./CompareCharts";
 import PrintButton from "./PrintButton";
 import { computeBrandStats, getBrandDailySeries, getBrandContentDaily, resolveComparePeriod } from "@/lib/compare";
 import { fmtDate } from "@/lib/utils";
+import { getAccessibleAccounts } from "@/lib/account-access";
+import { requirePageRole } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +19,8 @@ export default async function ComparePage({
   searchParams: Promise<{ accounts?: string; range?: string; from?: string; to?: string; metric?: string }>;
 }) {
   const sp = await searchParams;
-  const allAccounts = await dbAll<Account>("SELECT * FROM accounts ORDER BY name ASC");
+  const user = await requirePageRole(["admin", "editor", "viewer"]);
+  const allAccounts = await getAccessibleAccounts(user);
 
   if (allAccounts.length < 2) {
     return (
@@ -30,8 +32,8 @@ export default async function ComparePage({
         <EmptyState
           title="Butuh minimal 2 akun buat compare"
           description="Tambah akun sosmed lain dulu untuk mulai membandingkan performa side-by-side."
-          ctaHref="/accounts/new"
-          ctaLabel="Tambah Akun"
+          ctaHref={user.role === "admin" ? "/accounts/new" : undefined}
+          ctaLabel={user.role === "admin" ? "Tambah Akun" : undefined}
         />
       </div>
     );

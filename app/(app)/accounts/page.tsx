@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Plus, Instagram, Music2 } from "lucide-react";
-import { dbAll, Account } from "@/lib/db";
+import { getAccessibleAccounts } from "@/lib/account-access";
+import { requirePageRole } from "@/lib/session";
 import PlatformBadge from "@/components/PlatformBadge";
 import EmptyState from "@/components/EmptyState";
 import { fmtDate } from "@/lib/utils";
@@ -8,7 +9,8 @@ import { fmtDate } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 export default async function AccountsPage() {
-  const accounts = await dbAll<Account>("SELECT * FROM accounts ORDER BY created_at DESC");
+  const user = await requirePageRole(["admin", "editor", "viewer"]);
+  const accounts = (await getAccessibleAccounts(user)).sort((a, b) => b.created_at.localeCompare(a.created_at));
 
   const igCount = accounts.filter((a) => a.platform === "instagram").length;
   const ttCount = accounts.filter((a) => a.platform === "tiktok").length;
@@ -20,9 +22,9 @@ export default async function AccountsPage() {
           <h1 className="text-2xl font-bold text-slate-900">Akun Sosmed</h1>
           <p className="text-sm text-slate-500">Daftar akun sosial media yang kamu kelola.</p>
         </div>
-        <Link href="/accounts/new" className="btn-primary">
+        {user.role === "admin" && <Link href="/accounts/new" className="btn-primary">
           <Plus className="w-4 h-4" /> Tambah Akun
-        </Link>
+        </Link>}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -39,10 +41,10 @@ export default async function AccountsPage() {
 
       {accounts.length === 0 ? (
         <EmptyState
-          title="Belum ada akun terdaftar"
-          description="Tambah akun sosmed pertamamu untuk mulai mencatat performa mingguan."
-          ctaHref="/accounts/new"
-          ctaLabel="Tambah Akun Sekarang"
+          title={user.role === "admin" ? "Belum ada akun terdaftar" : "Belum ada akun yang ditugaskan"}
+          description={user.role === "admin" ? "Tambah akun sosmed pertamamu untuk mulai mencatat performa mingguan." : "Minta admin menugaskan akun sosial media ke pengguna kamu."}
+          ctaHref={user.role === "admin" ? "/accounts/new" : undefined}
+          ctaLabel={user.role === "admin" ? "Tambah Akun Sekarang" : undefined}
         />
       ) : (
         <div className="card">
@@ -66,8 +68,8 @@ export default async function AccountsPage() {
                     <td className="px-5 py-4 text-slate-500 text-sm">{fmtDate(a.created_at)}</td>
                     <td className="px-5 py-4 text-right">
                       <Link href={`/dashboard?account=${a.id}`} className="btn-ghost !py-1 !px-2 text-xs">Dashboard</Link>
-                      <Link href={`/input?account=${a.id}`} className="btn-secondary !py-1 !px-2 text-xs ml-2">Input</Link>
-                      <Link href={`/accounts/${a.id}/edit`} className="btn-secondary !py-1 !px-2 text-xs ml-2">Edit</Link>
+                      {user.role !== "viewer" && <Link href={`/input?account=${a.id}`} className="btn-secondary !py-1 !px-2 text-xs ml-2">Input</Link>}
+                      {user.role !== "viewer" && <Link href={`/accounts/${a.id}/edit`} className="btn-secondary !py-1 !px-2 text-xs ml-2">Edit</Link>}
                     </td>
                   </tr>
                 ))}

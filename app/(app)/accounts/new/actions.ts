@@ -13,7 +13,7 @@ const Schema = z.object({
 type Result = { ok: true; id: number } | { ok: false; error: string };
 
 export async function createAccount(input: unknown): Promise<Result> {
-  const user = await requireRole(["admin", "editor"]);
+  const user = await requireRole(["admin"]);
   const parsed = Schema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Input tidak valid" };
   const { name, handle, platform } = parsed.data;
@@ -22,8 +22,9 @@ export async function createAccount(input: unknown): Promise<Result> {
       "INSERT INTO accounts (name, platform, handle) VALUES (?, ?, ?)",
       [name, platform, handle.toLowerCase()]
     );
-    await auditLog(user.id, "create", "account", res.lastInsertRowid, { name, platform, handle });
-    return { ok: true, id: res.lastInsertRowid };
+    const id = res.lastInsertRowid;
+    await auditLog(user.id, "create", "account", id, { name, platform, handle });
+    return { ok: true, id };
   } catch (e: unknown) {
     const err = e as { code?: string; message?: string };
     const msg = err.message ?? "";

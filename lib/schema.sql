@@ -23,6 +23,15 @@ CREATE TABLE IF NOT EXISTS accounts (
 );
 CREATE INDEX IF NOT EXISTS idx_accounts_platform ON accounts(platform);
 
+CREATE TABLE IF NOT EXISTS user_account_access (
+  user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  account_id  INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  assigned_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY(user_id, account_id)
+);
+CREATE INDEX IF NOT EXISTS idx_user_account_access_account ON user_account_access(account_id, user_id);
+
 CREATE TABLE IF NOT EXISTS scrape_log (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
   account_id    INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,

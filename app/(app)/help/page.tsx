@@ -11,7 +11,7 @@ export default function HelpPage() {
       <Section icon={<PlayCircle className="w-5 h-5" />} title="1. Mulai Cepat">
         <Steps items={[
           "Login pakai akun yang dikasih admin.",
-          "Buka menu Akun Sosmed, klik Tambah Akun.",
+          "Admin membuka Akun Sosmed untuk menambah akun dan menugaskannya ke editor/viewer.",
           "Pilih platform (Instagram atau TikTok), isi nama brand + handle.",
           "Buka menu Input Data. Pilih tab Data Profil Harian, catat followers/visit/reach dari Insight aplikasi sosmed.",
           "Pindah ke tab Data Konten, input tiap post yang dipublish minggu itu.",
@@ -57,6 +57,7 @@ export default function HelpPage() {
       <Section icon={<ShieldCheck className="w-5 h-5" />} title="5. Keamanan Data">
         <Steps items={[
           "Ganti password default admin setelah instalasi.",
+          "Admin membuka Pengaturan → Pengguna, lalu memilih akun yang boleh diakses setiap editor/viewer.",
           "Backup database rutin dari menu Pengaturan → Backup.",
           "Kasih akses Viewer buat orang yang cuma perlu lihat.",
           "Deploy di server internal + HTTPS untuk produksi.",

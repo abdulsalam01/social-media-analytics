@@ -43,6 +43,7 @@ const REQUIRED_COLUMNS: Record<string, string[]> = {
     "id", "account_id", "query", "keywords", "status", "provider_summary",
     "evidence_count", "error", "created_by", "started_at", "completed_at",
   ],
+  user_account_access: ["user_id", "account_id", "assigned_by", "created_at"],
   users: ["id", "email", "password_hash", "name", "role", "created_at"],
 };
 
@@ -66,6 +67,7 @@ const REQUIRED_INDEXES = [
   "idx_scrape_log_account",
   "idx_trend_evidence_run",
   "idx_trend_runs_account",
+  "idx_user_account_access_account",
 ];
 
 async function main() {

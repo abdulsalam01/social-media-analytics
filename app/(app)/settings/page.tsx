@@ -12,6 +12,16 @@ export default async function SettingsPage() {
   const users = await dbAll<{ id: number; email: string; name: string; role: string; created_at: string }>(
     "SELECT id, email, name, role, created_at FROM users ORDER BY created_at ASC"
   );
+  const accounts = await dbAll<{ id: number; name: string; handle: string; platform: string }>(
+    "SELECT id, name, handle, platform FROM accounts ORDER BY name ASC"
+  );
+  const assignments = await dbAll<{ user_id: number; account_id: number }>(
+    "SELECT user_id, account_id FROM user_account_access ORDER BY user_id, account_id"
+  );
+  const usersWithAssignments = users.map((user) => ({
+    ...user,
+    account_ids: assignments.filter((item) => item.user_id === user.id).map((item) => item.account_id),
+  }));
   const stats = (await dbGet<{ accounts: number; profile: number; content: number; demographics: number; audit_log: number; login_attempts: number; scrape_log: number; scrape_log_errors: number }>(
     `SELECT
        (SELECT COUNT(*) FROM accounts)                                        AS accounts,
@@ -31,7 +41,7 @@ export default async function SettingsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Pengaturan</h1>
-        <p className="text-sm text-slate-500">Kelola pengguna, backup database, dan lihat log aktivitas.</p>
+        <p className="text-sm text-slate-500">Kelola pengguna, assignment akun, backup database, dan log aktivitas.</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -40,7 +50,7 @@ export default async function SettingsPage() {
             <div className="flex items-center gap-2"><Users className="w-4 h-4 text-brand-600" /><span className="font-semibold">Pengguna</span></div>
           </div>
           <div className="card-bd">
-            <UserManager users={users} meRole={me.role} meId={me.id} />
+            <UserManager users={usersWithAssignments} accounts={accounts} meRole={me.role} meId={me.id} />
           </div>
         </div>
 
@@ -94,7 +104,7 @@ export default async function SettingsPage() {
             <ul className="list-disc ml-5 space-y-1 text-xs">
               <li>Ganti password default admin setelah instalasi pertama.</li>
               <li>Backup database secara rutin (minimal seminggu sekali).</li>
-              <li>Batasi role editor/viewer untuk staf yang tidak butuh akses penuh.</li>
+              <li>Assign hanya akun yang memang perlu dilihat oleh setiap editor/viewer.</li>
               <li>Deploy dibalik HTTPS (Caddy/Nginx reverse proxy) di production.</li>
             </ul>
           </div>

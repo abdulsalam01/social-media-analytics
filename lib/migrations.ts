@@ -26,6 +26,13 @@ const TABLE_STATEMENTS = [
      created_at         TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
      UNIQUE(platform, handle)
    )`,
+  `CREATE TABLE IF NOT EXISTS user_account_access (
+     user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+     account_id  INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+     assigned_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+     created_at  TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+     PRIMARY KEY(user_id, account_id)
+   )`,
   `CREATE TABLE IF NOT EXISTS profile_insight (
      id                INTEGER PRIMARY KEY AUTOINCREMENT,
      account_id        INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
@@ -180,6 +187,7 @@ const ADDITIVE_COLUMNS = [
 
 const INDEX_STATEMENTS = [
   "CREATE INDEX IF NOT EXISTS idx_accounts_platform ON accounts(platform)",
+  "CREATE INDEX IF NOT EXISTS idx_user_account_access_account ON user_account_access(account_id, user_id)",
   "CREATE INDEX IF NOT EXISTS idx_pi_account_date ON profile_insight(account_id, date)",
   "CREATE INDEX IF NOT EXISTS idx_ci_account_date ON content_insight(account_id, post_date)",
   "CREATE INDEX IF NOT EXISTS idx_ci_account_eng ON content_insight(account_id, engagement DESC)",

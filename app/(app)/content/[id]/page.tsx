@@ -5,6 +5,8 @@ import { dbGet, Account, ContentInsight } from "@/lib/db";
 import { fmtNum, fmtPct, fmtDate, fmtDateTime, fmtRelative } from "@/lib/utils";
 import PlatformBadge from "@/components/PlatformBadge";
 import DetailActions from "./DetailActions";
+import { hasAccountAccess } from "@/lib/account-access";
+import { requirePageRole } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -25,11 +27,13 @@ export default async function ContentDetailPage({
 }) {
   const { id } = await params;
   const { from } = await searchParams;
+  const user = await requirePageRole(["admin", "editor", "viewer"]);
   const idNum = parseInt(id);
   if (!Number.isFinite(idNum)) notFound();
 
   const content = await dbGet<ContentInsight>("SELECT * FROM content_insight WHERE id = ?", [idNum]);
   if (!content) notFound();
+  if (!(await hasAccountAccess(user, content.account_id))) notFound();
 
   const account = await dbGet<Account>("SELECT * FROM accounts WHERE id = ?", [content.account_id]);
   if (!account) notFound();
@@ -149,6 +153,7 @@ export default async function ContentDetailPage({
             content={content}
             account={account}
             backHref={backHref}
+            canEdit={user.role === "admin" || user.role === "editor"}
           />
         </div>
       </div>

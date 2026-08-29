@@ -4,13 +4,16 @@ import { ArrowLeft } from "lucide-react";
 import { dbGet, Account } from "@/lib/db";
 import { requirePageRole } from "@/lib/session";
 import EditAccountForm from "./EditAccountForm";
+import { hasAccountAccess } from "@/lib/account-access";
 
 export const dynamic = "force-dynamic";
 
 export default async function EditAccountPage({ params }: { params: Promise<{ id: string }> }) {
-  await requirePageRole(["admin", "editor"]);
+  const user = await requirePageRole(["admin", "editor"]);
   const { id } = await params;
-  const account = await dbGet<Account>("SELECT * FROM accounts WHERE id = ?", [parseInt(id)]);
+  const parsedId = parseInt(id);
+  if (!(await hasAccountAccess(user, parsedId))) notFound();
+  const account = await dbGet<Account>("SELECT * FROM accounts WHERE id = ?", [parsedId]);
   if (!account) notFound();
 
   const stats = (await dbGet<{ profile_rows: number; content_rows: number }>(
@@ -30,7 +33,7 @@ export default async function EditAccountPage({ params }: { params: Promise<{ id
         <p className="text-sm text-slate-500">Ubah info akun atau hapus permanen.</p>
       </div>
       <div className="card"><div className="card-bd">
-        <EditAccountForm account={account} stats={stats} />
+        <EditAccountForm account={account} stats={stats} canDelete={user.role === "admin"} />
       </div></div>
     </div>
   );

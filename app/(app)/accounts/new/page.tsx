@@ -4,7 +4,7 @@ import { requirePageRole } from "@/lib/session";
 import NewAccountForm from "./NewAccountForm";
 
 export default async function NewAccountPage() {
-  await requirePageRole(["admin", "editor"]);
+  await requirePageRole(["admin"]);
   return (
     <div className="max-w-xl space-y-6">
       <Link href="/accounts" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800">

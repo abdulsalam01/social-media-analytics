@@ -1,7 +1,8 @@
 "use server";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
-import { dbGet, dbRun, dbExec, isRemoteDb } from "@/lib/db";
+import { revalidatePath } from "next/cache";
+import { dbAll, dbGet, dbRun, dbExec, dbTx, isRemoteDb, txRun } from "@/lib/db";
 import { requireRole } from "@/lib/session";
 import { auditLog } from "@/lib/auth";
 
@@ -50,6 +51,43 @@ export async function resetPassword(id: number, password: string) {
   return { ok: true as const };
 }
 
+const AssignmentSchema = z.object({
+  userId: z.number().int().positive(),
+  accountIds: z.array(z.number().int().positive()).max(500),
+});
+
+export async function setUserAccountAssignments(input: unknown) {
+  const me = await requireRole(["admin"]);
+  const parsed = AssignmentSchema.safeParse(input);
+  if (!parsed.success) return { ok: false as const, error: "Assignment akun tidak valid" };
+
+  const user = await dbGet<{ id: number; role: string }>("SELECT id, role FROM users WHERE id = ?", [parsed.data.userId]);
+  if (!user) return { ok: false as const, error: "Pengguna tidak ditemukan" };
+  if (user.role === "admin") return { ok: false as const, error: "Admin otomatis memiliki akses ke semua akun" };
+
+  const accountIds = [...new Set(parsed.data.accountIds)];
+  if (accountIds.length) {
+    const placeholders = accountIds.map(() => "?").join(",");
+    const found = await dbAll<{ id: number }>(`SELECT id FROM accounts WHERE id IN (${placeholders})`, accountIds);
+    if (found.length !== accountIds.length) return { ok: false as const, error: "Ada akun yang tidak ditemukan" };
+  }
+
+  await dbTx(async (tx) => {
+    await txRun(tx, "DELETE FROM user_account_access WHERE user_id = ?", [user.id]);
+    for (const accountId of accountIds) {
+      await txRun(
+        tx,
+        "INSERT INTO user_account_access (user_id, account_id, assigned_by) VALUES (?, ?, ?)",
+        [user.id, accountId, me.id]
+      );
+    }
+  });
+
+  await auditLog(me.id, "assign_accounts", "user", user.id, { account_ids: accountIds });
+  revalidatePath("/settings");
+  return { ok: true as const, count: accountIds.length };
+}
+
 export async function resetAllData(confirmPhrase: string) {
   const me = await requireRole(["admin"]);
   if (confirmPhrase !== "RESET SEMUA DATA") {
@@ -73,6 +111,7 @@ export async function resetAllData(confirmPhrase: string) {
   await dbRun("DELETE FROM demographics");
   await dbRun("DELETE FROM content_insight");
   await dbRun("DELETE FROM profile_insight");
+  await dbRun("DELETE FROM user_account_access");
   await dbRun("DELETE FROM accounts");
   await dbRun("DELETE FROM sqlite_sequence WHERE name IN ('accounts','profile_insight','content_insight','demographics','trend_research_runs','trend_evidence','content_ideas')");
 

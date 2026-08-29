@@ -4,9 +4,11 @@ import { dbRun, dbAll, dbGet } from "@/lib/db";
 import { requireRole } from "@/lib/session";
 import { auditLog } from "@/lib/auth";
 import { extractPostIdFromUrl, runScrapeForPost } from "@/lib/scraper";
+import { getAccountIdForContent, hasAccountAccess } from "@/lib/account-access";
 
 export async function toggleAccountScrape(accountId: number, enabled: boolean) {
   const user = await requireRole(["admin", "editor"]);
+  if (!(await hasAccountAccess(user, accountId))) return { ok: false as const, error: "Kamu tidak punya akses ke akun ini" };
   const res = await dbRun(
     "UPDATE accounts SET scrape_enabled = ? WHERE id = ?",
     [enabled ? 1 : 0, accountId]
@@ -18,6 +20,8 @@ export async function toggleAccountScrape(accountId: number, enabled: boolean) {
 
 export async function togglePostScrape(postId: number, enabled: boolean) {
   const user = await requireRole(["admin", "editor"]);
+  const accountId = await getAccountIdForContent(postId);
+  if (!accountId || !(await hasAccountAccess(user, accountId))) return { ok: false as const, error: "Post tidak ditemukan atau akses ditolak" };
   const res = await dbRun(
     "UPDATE content_insight SET scrape_enabled = ? WHERE id = ?",
     [enabled ? 1 : 0, postId]
@@ -36,6 +40,7 @@ export async function updateScrapeUrl(input: unknown) {
   const user = await requireRole(["admin", "editor"]);
   const p = UrlSchema.safeParse(input);
   if (!p.success) return { ok: false as const, error: "URL tidak valid" };
+  if (!(await hasAccountAccess(user, p.data.accountId))) return { ok: false as const, error: "Kamu tidak punya akses ke akun ini" };
   await dbRun(
     "UPDATE accounts SET scrape_url = ? WHERE id = ?",
     [p.data.scrapeUrl ?? null, p.data.accountId]
@@ -58,6 +63,7 @@ export async function addTrackedPostUrl(input: unknown) {
   const user = await requireRole(["admin", "editor"]);
   const p = AddTrackedUrlSchema.safeParse(input);
   if (!p.success) return { ok: false as const, error: p.error.issues[0]?.message ?? "Input tidak valid" };
+  if (!(await hasAccountAccess(user, p.data.account_id))) return { ok: false as const, error: "Kamu tidak punya akses ke akun ini" };
 
   const extracted = extractPostIdFromUrl(p.data.url);
   if (!extracted) return { ok: false as const, error: "URL tidak dikenali (harus Instagram post/reel atau TikTok video)" };
@@ -116,7 +122,8 @@ export async function addTrackedPostUrl(input: unknown) {
 }
 
 export async function getScrapeLogs(accountId: number) {
-  await requireRole(["admin", "editor", "viewer"]);
+  const user = await requireRole(["admin", "editor", "viewer"]);
+  if (!(await hasAccountAccess(user, accountId))) return [];
   return dbAll(
     `SELECT id, scraped_at, status, posts_found, posts_updated, error
      FROM scrape_log WHERE account_id = ?

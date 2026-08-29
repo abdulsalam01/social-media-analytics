@@ -3,6 +3,7 @@ import { z } from "zod";
 import { dbGet, dbRun, dbTx, txRun } from "@/lib/db";
 import { requireRole } from "@/lib/session";
 import { auditLog } from "@/lib/auth";
+import { getAccountIdForContent, getAccountIdForProfile, hasAccountAccess } from "@/lib/account-access";
 
 const ProfileSchema = z.object({
   account_id: z.number().int().positive(),
@@ -21,6 +22,7 @@ export async function saveProfileInsight(input: unknown) {
   const p = ProfileSchema.safeParse(input);
   if (!p.success) return { ok: false as const, error: p.error.issues[0]?.message ?? "Data tidak valid" };
   const { account_id, date, visit_per_day, reach_per_day, new_followers } = p.data;
+  if (!(await hasAccountAccess(user, account_id))) return { ok: false as const, error: "Kamu tidak punya akses ke akun ini" };
 
   const prev = await dbGet<{ followers: number }>(
     "SELECT followers FROM profile_insight WHERE account_id = ? AND date < ? ORDER BY date DESC LIMIT 1",
@@ -68,6 +70,10 @@ export async function saveContentRows(input: unknown) {
   const user = await requireRole(["admin", "editor"]);
   const parsed = z.array(ContentRowSchema).min(1).max(200).safeParse(input);
   if (!parsed.success) return { ok: false as const, error: "Data konten tidak valid" };
+  const accountIds = [...new Set(parsed.data.map((row) => row.account_id))];
+  for (const accountId of accountIds) {
+    if (!(await hasAccountAccess(user, accountId))) return { ok: false as const, error: "Kamu tidak punya akses ke salah satu akun" };
+  }
 
   await dbTx(async (tx) => {
     for (const r of parsed.data) {
@@ -95,6 +101,7 @@ export async function updateProfileInsight(input: unknown) {
   const p = ProfileUpdateSchema.safeParse(input);
   if (!p.success) return { ok: false as const, error: p.error.issues[0]?.message ?? "Data tidak valid" };
   const { id, account_id, date, visit_per_day, reach_per_day, new_followers } = p.data;
+  if (!(await hasAccountAccess(user, account_id))) return { ok: false as const, error: "Kamu tidak punya akses ke akun ini" };
 
   const prev = await dbGet<{ followers: number }>(
     "SELECT followers FROM profile_insight WHERE account_id = ? AND date < ? AND id != ? ORDER BY date DESC LIMIT 1",
@@ -117,6 +124,8 @@ export async function updateProfileInsight(input: unknown) {
 
 export async function deleteProfileInsight(id: number) {
   const user = await requireRole(["admin", "editor"]);
+  const accountId = await getAccountIdForProfile(id);
+  if (!accountId || !(await hasAccountAccess(user, accountId))) return { ok: false as const, error: "Data tidak ditemukan atau akses ditolak" };
   const res = await dbRun("DELETE FROM profile_insight WHERE id = ?", [id]);
   if (res.changes === 0) return { ok: false as const, error: "Data tidak ditemukan" };
   await auditLog(user.id, "delete", "profile_insight", id);
@@ -130,6 +139,7 @@ export async function updateContentInsight(input: unknown) {
   const p = ContentUpdateSchema.safeParse(input);
   if (!p.success) return { ok: false as const, error: "Data konten tidak valid" };
   const r = p.data;
+  if (!(await hasAccountAccess(user, r.account_id))) return { ok: false as const, error: "Kamu tidak punya akses ke akun ini" };
   const engagement = r.likes + r.comments + r.shares + r.saves + r.reposts;
   const denom = r.reach > 0 ? r.reach : r.plays;
   const rate = denom > 0 ? engagement / denom : 0;
@@ -150,6 +160,8 @@ export async function updateContentInsight(input: unknown) {
 
 export async function deleteContentInsight(id: number) {
   const user = await requireRole(["admin", "editor"]);
+  const accountId = await getAccountIdForContent(id);
+  if (!accountId || !(await hasAccountAccess(user, accountId))) return { ok: false as const, error: "Data tidak ditemukan atau akses ditolak" };
   const res = await dbRun("DELETE FROM content_insight WHERE id = ?", [id]);
   if (res.changes === 0) return { ok: false as const, error: "Data tidak ditemukan" };
   await auditLog(user.id, "delete", "content_insight", id);

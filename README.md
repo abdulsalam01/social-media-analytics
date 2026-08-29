@@ -14,6 +14,7 @@ Dashboard analytics sosial media buat Instagram & TikTok. Ganti kerjaan manual d
 - Laporan mingguan siap cetak / Save as PDF
 - Backup 1-klik (download file database)
 - Role-based access: Admin, Editor, Viewer
+- Assignment akses per akun: admin menentukan akun yang dapat dilihat setiap editor/viewer
 - Audit log aktivitas
 - Panduan pemakaian bawaan di dalam aplikasi.
 
@@ -71,9 +72,9 @@ socmed-insight/
 
 | Role | Bisa |
 |------|------|
-| Admin | Semua akses + kelola pengguna + backup |
-| Editor | Input & ubah data, atur goal, riset tren, dan kelola pipeline ide |
-| Viewer | Lihat dashboard, laporan, bukti tren, dan ide |
+| Admin | Semua akun + kelola assignment pengguna + backup |
+| Editor | Input, ubah data, riset tren, dan ide hanya untuk akun yang ditugaskan |
+| Viewer | Lihat dashboard, laporan, bukti tren, dan ide hanya untuk akun yang ditugaskan |
 
 ## Backup Data
 

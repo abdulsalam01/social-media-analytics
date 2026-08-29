@@ -1,8 +1,10 @@
-import { dbAll, Account } from "@/lib/db";
+import { dbAll } from "@/lib/db";
 import EmptyState from "@/components/EmptyState";
 import AccountPicker from "@/components/AccountPicker";
 import ReportSubNav from "../ReportSubNav";
 import AdvancedCompare from "./AdvancedCompare";
+import { getAccessibleAccounts } from "@/lib/account-access";
+import { requirePageRole } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -29,15 +31,16 @@ export default async function AdvancedReportPage({
   searchParams: Promise<{ account?: string; ids?: string }>;
 }) {
   const sp = await searchParams;
-  const accounts = await dbAll<Account>("SELECT * FROM accounts ORDER BY name ASC");
+  const user = await requirePageRole(["admin", "editor", "viewer"]);
+  const accounts = await getAccessibleAccounts(user);
 
   if (accounts.length === 0) {
     return (
       <EmptyState
-        title="Belum ada akun"
-        description="Tambah akun sosmed dulu."
-        ctaHref="/accounts/new"
-        ctaLabel="Tambah Akun"
+        title={user.role === "admin" ? "Belum ada akun" : "Belum ada akun yang ditugaskan"}
+        description={user.role === "admin" ? "Tambah akun sosmed dulu." : "Minta admin menugaskan akun agar konten dapat dibandingkan."}
+        ctaHref={user.role === "admin" ? "/accounts/new" : undefined}
+        ctaLabel={user.role === "admin" ? "Tambah Akun" : undefined}
       />
     );
   }

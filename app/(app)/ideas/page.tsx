@@ -5,6 +5,7 @@ import PlatformBadge from "@/components/PlatformBadge";
 import { dbAll, dbGet, type Account, type AccountContentGoals, type ContentIdea, type TrendEvidence } from "@/lib/db";
 import { requirePageRole } from "@/lib/session";
 import ContentIdeasClient, { type GoalFormData, type ResearchRunDto } from "./ContentIdeasClient";
+import { getAccessibleAccounts } from "@/lib/account-access";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -54,7 +55,7 @@ function goalDto(goal: AccountContentGoals | undefined, account: Account): GoalF
 export default async function IdeasPage({ searchParams }: { searchParams: Promise<{ account?: string }> }) {
   const user = await requirePageRole(["admin", "editor", "viewer"]);
   const params = await searchParams;
-  const accounts = await dbAll<Account>("SELECT * FROM accounts ORDER BY name ASC");
+  const accounts = await getAccessibleAccounts(user);
 
   if (!accounts.length) {
     return (
@@ -63,7 +64,12 @@ export default async function IdeasPage({ searchParams }: { searchParams: Promis
           <h1 className="text-2xl font-bold text-slate-900">Ide Konten AI</h1>
           <p className="text-sm text-slate-500">Riset tren nyata dan ubah menjadi rencana konten yang bisa dikerjakan tim.</p>
         </div>
-        <EmptyState title="Belum ada akun" description="Tambahkan akun sosial media sebelum mengatur goal dan membuat ide." ctaHref="/accounts/new" ctaLabel="Tambah Akun" />
+        <EmptyState
+          title={user.role === "admin" ? "Belum ada akun" : "Belum ada akun yang ditugaskan"}
+          description={user.role === "admin" ? "Tambahkan akun sosial media sebelum mengatur goal dan membuat ide." : "Minta admin menugaskan akun agar kamu dapat melihat ide kontennya."}
+          ctaHref={user.role === "admin" ? "/accounts/new" : undefined}
+          ctaLabel={user.role === "admin" ? "Tambah Akun" : undefined}
+        />
       </div>
     );
   }

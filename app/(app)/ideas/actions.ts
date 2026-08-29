@@ -8,6 +8,7 @@ import { generateIdeasWithGemini, type EvidenceForAI, type GoalsForAI } from "@/
 import { collectTrendEvidence, type ProviderReport } from "@/lib/trends";
 import { scheduleContentIdeas, type ExistingSchedule, type HistoricalDayPerformance } from "@/lib/content-scheduler";
 import { requireRole } from "@/lib/session";
+import { getAccountIdForIdea, hasAccountAccess } from "@/lib/account-access";
 
 const GoalSchema = z.object({
   accountId: z.number().int().positive(),
@@ -58,6 +59,7 @@ export async function saveContentGoals(input: unknown) {
   const parsed = GoalSchema.safeParse(input);
   if (!parsed.success) return { ok: false as const, error: parsed.error.issues[0]?.message ?? "Pengaturan goal tidak valid" };
   const goal = parsed.data;
+  if (!(await hasAccountAccess(user, goal.accountId))) return { ok: false as const, error: "Kamu tidak punya akses ke akun ini" };
 
   const account = await dbGet<{ id: number }>("SELECT id FROM accounts WHERE id = ?", [goal.accountId]);
   if (!account) return { ok: false as const, error: "Akun tidak ditemukan" };
@@ -109,6 +111,7 @@ export async function generateContentIdeas(input: unknown): Promise<
   const parsed = GenerateSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Input riset tidak valid" };
   const { accountId, keywords, ideaCount } = parsed.data;
+  if (!(await hasAccountAccess(user, accountId))) return { ok: false, error: "Kamu tidak punya akses ke akun ini" };
 
   const account = await dbGet<Account>("SELECT * FROM accounts WHERE id = ?", [accountId]);
   const goals = await dbGet<AccountContentGoals>("SELECT * FROM account_content_goals WHERE account_id = ?", [accountId]);
@@ -245,6 +248,8 @@ export async function updateIdeaStatus(input: unknown) {
   const parsed = StatusSchema.safeParse(input);
   if (!parsed.success) return { ok: false as const, error: "Status tidak valid" };
   const { ideaId, status } = parsed.data;
+  const accountId = await getAccountIdForIdea(ideaId);
+  if (!accountId || !(await hasAccountAccess(user, accountId))) return { ok: false as const, error: "Ide tidak ditemukan atau akses ditolak" };
   const result = await dbRun(
     `UPDATE content_ideas SET status = ?, updated_at = datetime('now'),
        published_at = CASE WHEN ? = 'terbit' THEN COALESCE(published_at, datetime('now')) ELSE published_at END

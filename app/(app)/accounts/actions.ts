@@ -3,6 +3,7 @@ import { z } from "zod";
 import { dbRun } from "@/lib/db";
 import { requireRole } from "@/lib/session";
 import { auditLog } from "@/lib/auth";
+import { hasAccountAccess } from "@/lib/account-access";
 
 const UpdateSchema = z.object({
   id: z.number().int().positive(),
@@ -18,6 +19,7 @@ export async function updateAccount(input: unknown): Promise<Result> {
   const parsed = UpdateSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Input tidak valid" };
   const { id, name, handle, platform } = parsed.data;
+  if (!(await hasAccountAccess(user, id))) return { ok: false, error: "Kamu tidak punya akses ke akun ini" };
   try {
     const res = await dbRun(
       "UPDATE accounts SET name = ?, handle = ?, platform = ? WHERE id = ?",

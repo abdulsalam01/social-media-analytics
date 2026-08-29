@@ -158,6 +158,13 @@ export type User = {
   created_at: string;
 };
 
+export type UserAccountAccess = {
+  user_id: number;
+  account_id: number;
+  assigned_by: number | null;
+  created_at: string;
+};
+
 export type ProfileInsight = {
   id: number;
   account_id: number;
