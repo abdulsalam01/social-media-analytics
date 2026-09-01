@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { Users, Heart, Eye, TrendingUp, MessageCircle, Share2, Bookmark, Activity } from "lucide-react";
 import { dbAll } from "@/lib/db";
-import { getAccessibleAccounts } from "@/lib/account-access";
+import { getAccessibleAccounts, resolveActiveAccount } from "@/lib/account-access";
 import { requirePageRole } from "@/lib/session";
-import { computeWeeklySummary, growthDelta } from "@/lib/calc";
-import { weekStartOf, weekLabel, monthRange, currentMonth } from "@/lib/dates";
+import { computeRangeSummary, contentEngagementRateSql, contentEngagementSql, growthDelta } from "@/lib/calc";
+import { resolveDashboardPeriod, type DashboardRange } from "@/lib/dates";
 import { fmtNum, fmtPct, fmtDate } from "@/lib/utils";
 import EmptyState from "@/components/EmptyState";
 import PlatformBadge from "@/components/PlatformBadge";
@@ -16,42 +16,16 @@ import TopPostsList from "./TopPostsList";
 
 export const dynamic = "force-dynamic";
 
-type Range = "7d" | "30d" | "90d" | "month" | "custom";
+type Range = DashboardRange;
 type SortBy = "engagement" | "reach" | "likes" | "comments" | "shares" | "saves" | "rate" | "date";
 
-const SORT_COLUMN: Record<SortBy, string> = {
-  engagement: "engagement",
-  reach: "reach",
-  likes: "likes",
-  comments: "comments",
-  shares: "shares",
-  saves: "saves",
-  rate: "engagement_rate",
-  date: "post_date",
-};
-
-function resolveRange(range: Range, from: string | undefined, to: string | undefined, month: string | undefined): { from: string; to: string; days: number; label: string } {
-  const today = new Date();
-  const todayISO = today.toISOString().slice(0, 10);
-  const shift = (days: number) => {
-    const d = new Date(today);
-    d.setDate(today.getDate() - days);
-    return d.toISOString().slice(0, 10);
-  };
-  if (range === "custom" && from && to) return { from, to, days: -1, label: `${from} → ${to}` };
-  if (range === "month") {
-    const m = monthRange(month || currentMonth());
-    return { from: m.from, to: m.to, days: -1, label: `Bulan ${m.label}` };
-  }
-  const days = range === "7d" ? 7 : range === "90d" ? 90 : 30;
-  return { from: shift(days - 1), to: todayISO, days, label: `${days} hari terakhir` };
-}
+const SORT_KEYS: SortBy[] = ["engagement", "reach", "likes", "comments", "shares", "saves", "rate", "date"];
 
 export default async function DashboardPage({
   searchParams,
 }: {
   searchParams: Promise<{
-    account?: string; week?: string; range?: string; from?: string; to?: string; month?: string;
+    account?: string; range?: string; from?: string; to?: string; month?: string;
     sortBy?: string; minEng?: string; linkOnly?: string;
   }>;
 }) {
@@ -76,22 +50,21 @@ export default async function DashboardPage({
     );
   }
 
-  const accountId = sp.account ? parseInt(sp.account) : accounts[0].id;
-  const account = accounts.find((a) => a.id === accountId) ?? accounts[0];
-  const currentWeek = sp.week || weekStartOf(new Date().toISOString().slice(0, 10));
+  const account = await resolveActiveAccount(accounts, sp.account);
+  const isTT = account.platform === "tiktok";
 
   const range = (["7d", "30d", "90d", "month", "custom"].includes(sp.range || "") ? sp.range : "30d") as Range;
-  const { from: rangeFrom, to: rangeTo, label: rangeLabel } = resolveRange(range, sp.from, sp.to, sp.month);
-  const sortBy = (Object.keys(SORT_COLUMN).includes(sp.sortBy || "") ? sp.sortBy : "engagement") as SortBy;
+  const period = resolveDashboardPeriod(range, sp.from, sp.to, sp.month);
+  const { from: rangeFrom, to: rangeTo, label: rangeLabel } = period;
+  const sortBy = (SORT_KEYS.includes(sp.sortBy as SortBy) ? sp.sortBy : "engagement") as SortBy;
   const minEng = Math.max(0, parseInt(sp.minEng || "0") || 0);
   const linkOnly = sp.linkOnly === "1";
 
-  const prevWeekDate = new Date(currentWeek + "T00:00:00");
-  prevWeekDate.setUTCDate(prevWeekDate.getUTCDate() - 7);
-  const prevWeek = prevWeekDate.toISOString().slice(0, 10);
-  const cur = await computeWeeklySummary(account.id, currentWeek);
-  const prev = await computeWeeklySummary(account.id, prevWeek);
+  const cur = await computeRangeSummary(account.id, rangeFrom, rangeTo);
+  const prev = await computeRangeSummary(account.id, period.prevFrom, period.prevTo);
   const delta = growthDelta(cur, prev);
+  const engagementSql = contentEngagementSql();
+  const engagementRateSql = contentEngagementRateSql();
 
   const dailySeries = await dbAll<{
     date: string; followers: number; followers_growth: number; visit_per_day: number; reach_per_day: number;
@@ -105,28 +78,41 @@ export default async function DashboardPage({
 
   const contentFilters: string[] = ["account_id = ?", "post_date >= ?", "post_date <= ?"];
   const contentArgs: (string | number)[] = [account.id, rangeFrom, rangeTo];
-  if (minEng > 0) { contentFilters.push("engagement >= ?"); contentArgs.push(minEng); }
+  if (minEng > 0) { contentFilters.push(`${engagementSql} >= ?`); contentArgs.push(minEng); }
   if (linkOnly) { contentFilters.push("link IS NOT NULL AND link <> ''"); }
   const whereClause = contentFilters.join(" AND ");
 
   const contentSeries = await dbAll<{
-    id: number; post_date: string; title: string | null; link: string | null; likes: number; comments: number; shares: number; saves: number;
+    id: number; post_date: string; title: string | null; link: string | null; likes: number; comments: number; shares: number; saves: number; reposts: number;
     reach: number; plays: number; engagement: number; engagement_rate: number;
   }>(
-    `SELECT id, post_date, title, link, likes, comments, shares, saves, reach, plays, engagement, engagement_rate
+    `SELECT id, post_date, title, link, likes, comments, shares, saves, reposts, reach, plays,
+            ${engagementSql} AS engagement,
+            ${engagementRateSql} AS engagement_rate
      FROM content_insight
      WHERE ${whereClause}
      ORDER BY post_date ASC`,
     contentArgs
   );
 
-  const sortCol = SORT_COLUMN[sortBy];
+  const sortExpression: Record<SortBy, string> = {
+    engagement: engagementSql,
+    reach: isTT ? "plays" : "reach",
+    likes: "likes",
+    comments: "comments",
+    shares: "shares",
+    saves: "saves",
+    rate: engagementRateSql,
+    date: "post_date",
+  };
+  const sortCol = sortExpression[sortBy];
   const topContent = await dbAll<{
     id: number; post_date: string; title: string | null; link: string | null; engagement: number; reach: number; plays: number;
     likes: number; comments: number; shares: number; saves: number; engagement_rate: number;
     impression: number; profile_visit: number;
   }>(
-    `SELECT id, post_date, title, link, engagement, reach, plays, likes, comments, shares, saves, engagement_rate, impression, profile_visit
+    `SELECT id, post_date, title, link, ${engagementSql} AS engagement, reach, plays, likes, comments, shares, saves,
+            ${engagementRateSql} AS engagement_rate, impression, profile_visit
      FROM content_insight
      WHERE ${whereClause}
      ORDER BY ${sortCol} DESC, post_date DESC
@@ -135,8 +121,7 @@ export default async function DashboardPage({
   );
 
   const totalMatchedContent = contentSeries.length;
-  const hasData = dailySeries.length > 0 || contentSeries.length > 0;
-  const isTT = account.platform === "tiktok";
+  const hasData = dailySeries.length > 0 || contentSeries.length > 0 || cur.total_followers > 0;
   const generatedAt = new Date().toISOString();
   const dashboardHref = `/dashboard?${new URLSearchParams({
     account: String(account.id),
@@ -147,6 +132,12 @@ export default async function DashboardPage({
     ...(sortBy !== "engagement" ? { sortBy } : {}),
     ...(minEng > 0 ? { minEng: String(minEng) } : {}),
     ...(linkOnly ? { linkOnly: "1" } : {}),
+  }).toString()}`;
+  const reportHref = `/report?${new URLSearchParams({
+    account: String(account.id),
+    ...(range === "month"
+      ? { mode: "month", month: sp.month || rangeFrom.slice(0, 7) }
+      : { mode: "range", from: rangeFrom, to: rangeTo }),
   }).toString()}`;
 
   return (
@@ -161,7 +152,7 @@ export default async function DashboardPage({
           </div>
           <div className="text-right text-xs text-slate-500">
             <div>Periode: {rangeLabel}</div>
-            <div>Minggu: {weekLabel(currentWeek)}</div>
+            <div>Pembanding: {period.prevFrom} — {period.prevTo}</div>
             <div>Dicetak: {fmtDate(generatedAt)}</div>
           </div>
         </div>
@@ -170,7 +161,7 @@ export default async function DashboardPage({
       <div className="flex items-start justify-between flex-wrap gap-4 no-print">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
-          <p className="text-sm text-slate-500">Performa mingguan • {weekLabel(currentWeek)} • Grafik: {rangeLabel}</p>
+          <p className="text-sm text-slate-500">Seluruh metrik dan grafik • {rangeLabel}</p>
           <div className="mt-2 flex items-center gap-2">
             <PlatformBadge platform={account.platform} />
             <span className="text-sm font-medium text-slate-700">{account.name}</span>
@@ -179,7 +170,7 @@ export default async function DashboardPage({
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <AccountPicker accounts={accounts} current={account.id} basePath="/dashboard" />
-          <Link href={`/report?account=${account.id}&week=${currentWeek}`} className="btn-secondary">
+          <Link href={reportHref} className="btn-secondary">
             Lihat Laporan
           </Link>
           {user.role !== "viewer" && <Link href={`/input?account=${account.id}`} className="btn-primary">
@@ -197,7 +188,6 @@ export default async function DashboardPage({
         minEng={minEng}
         linkOnly={linkOnly}
         account={account.id}
-        week={currentWeek}
       />
 
       {/* Filter summary chip (visible on print + screen) */}
@@ -214,8 +204,8 @@ export default async function DashboardPage({
         <EmptyState
           title="Tidak ada data pada rentang ini"
           description="Coba ubah rentang waktu atau kurangi filter, atau input data baru dulu."
-          ctaHref={`/input?account=${account.id}`}
-          ctaLabel="Input Data"
+          ctaHref={user.role === "viewer" ? undefined : `/input?account=${account.id}`}
+          ctaLabel={user.role === "viewer" ? undefined : "Input Data"}
         />
       ) : (
         <>

@@ -1,19 +1,17 @@
 import { dbAll } from "./db";
+import { contentEngagementSql } from "./calc";
+import { isValidISODate, shiftISODate, todayInTimeZone } from "./dates";
 
 export type ComparePeriod = { from: string; to: string; label: string };
 
 export function resolveComparePeriod(range: string, from?: string, to?: string): ComparePeriod {
-  const today = new Date();
-  const todayISO = today.toISOString().slice(0, 10);
-  const shift = (n: number) => {
-    const d = new Date(today);
-    d.setDate(today.getDate() - n);
-    return d.toISOString().slice(0, 10);
-  };
-  if (range === "custom" && from && to) return { from, to, label: `${from} → ${to}` };
+  const todayISO = todayInTimeZone();
+  if (range === "custom" && isValidISODate(from) && isValidISODate(to) && from <= to) {
+    return { from, to, label: `${from} → ${to}` };
+  }
   if (range === "1d") return { from: todayISO, to: todayISO, label: `Hari ini (${todayISO})` };
   const days = range === "7d" ? 7 : range === "90d" ? 90 : 30;
-  return { from: shift(days - 1), to: todayISO, label: `${days} hari terakhir` };
+  return { from: shiftISODate(todayISO, -(days - 1)), to: todayISO, label: `${days} hari terakhir` };
 }
 
 export type BrandStats = {
@@ -47,9 +45,10 @@ export async function computeBrandStats(accountIds: number[], from: string, to: 
   const result = new Map<number, BrandStats>();
   if (accountIds.length === 0) return result;
   const ph = accountIds.map(() => "?").join(",");
+  const engagementSql = contentEngagementSql("ci");
 
   const contentRows = await dbAll<Omit<BrandStats, "latest_followers" | "first_followers" | "followers_growth" | "new_followers_sum" | "visit_sum" | "reach_sum">>(
-    `SELECT account_id,
+    `SELECT ci.account_id,
        COUNT(*) AS total_content,
        COALESCE(SUM(likes), 0)      AS total_likes,
        COALESCE(SUM(comments), 0)   AS total_comments,
@@ -58,11 +57,15 @@ export async function computeBrandStats(accountIds: number[], from: string, to: 
        COALESCE(SUM(reach), 0)      AS total_reach,
        COALESCE(SUM(plays), 0)      AS total_plays,
        COALESCE(SUM(impression), 0) AS total_impression,
-       COALESCE(SUM(engagement), 0) AS total_engagement,
-       COALESCE(AVG(engagement_rate), 0) AS avg_engagement_rate
-     FROM content_insight
-     WHERE account_id IN (${ph}) AND post_date >= ? AND post_date <= ?
-     GROUP BY account_id`,
+       COALESCE(SUM(${engagementSql}), 0) AS total_engagement,
+       CASE
+         WHEN COALESCE(SUM(ci.reach), 0) > 0 THEN CAST(SUM(${engagementSql}) AS REAL) / SUM(ci.reach)
+         WHEN COALESCE(SUM(ci.plays), 0) > 0 THEN CAST(SUM(${engagementSql}) AS REAL) / SUM(ci.plays)
+         ELSE 0
+       END AS avg_engagement_rate
+     FROM content_insight ci
+     WHERE ci.account_id IN (${ph}) AND ci.post_date >= ? AND ci.post_date <= ?
+     GROUP BY ci.account_id`,
     [...accountIds, from, to]
   );
 
@@ -142,14 +145,15 @@ export type ContentDailyRow = { account_id: number; post_date: string; engagemen
 export async function getBrandContentDaily(accountIds: number[], from: string, to: string): Promise<ContentDailyRow[]> {
   if (accountIds.length === 0) return [];
   const ph = accountIds.map(() => "?").join(",");
+  const engagementSql = contentEngagementSql("ci");
   return dbAll<ContentDailyRow>(
-    `SELECT account_id, post_date,
-            COALESCE(SUM(engagement), 0) AS engagement,
-            COALESCE(SUM(reach) + SUM(plays), 0) AS total_reach_or_plays
-     FROM content_insight
-     WHERE account_id IN (${ph}) AND post_date >= ? AND post_date <= ?
-     GROUP BY account_id, post_date
-     ORDER BY post_date ASC`,
+    `SELECT ci.account_id, ci.post_date,
+            COALESCE(SUM(${engagementSql}), 0) AS engagement,
+            COALESCE(SUM(ci.reach) + SUM(ci.plays), 0) AS total_reach_or_plays
+     FROM content_insight ci
+     WHERE ci.account_id IN (${ph}) AND ci.post_date >= ? AND ci.post_date <= ?
+     GROUP BY ci.account_id, ci.post_date
+     ORDER BY ci.post_date ASC`,
     [...accountIds, from, to]
   );
 }

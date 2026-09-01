@@ -2,7 +2,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
 import { cn } from "@/lib/utils";
-import { weekStartOf, monthWindow, currentMonth } from "@/lib/dates";
+import { weekStartOf, monthWindow, currentMonth, shiftISODate, todayInTimeZone } from "@/lib/dates";
 import DateField from "@/components/DateField";
 
 type Mode = "day" | "week" | "month" | "range";
@@ -36,18 +36,15 @@ export default function PeriodPicker({
 
   function pickMode(m: Mode) {
     if (m === "day") {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = todayInTimeZone();
       push({ mode: "day", week: null, month: null, to: null, from: from || today });
     }
     if (m === "week") push({ mode: "week", month: null, from: null, to: null, week });
     if (m === "month") push({ mode: "month", week: null, from: null, to: null, month: month || currentMonth() });
     if (m === "range") {
       // Prefill defaults so backend never sees empty range
-      const today = new Date();
-      const to = today.toISOString().slice(0, 10);
-      const fromD = new Date(today);
-      fromD.setDate(today.getDate() - 29);
-      const fromISO = fromD.toISOString().slice(0, 10);
+      const to = todayInTimeZone();
+      const fromISO = shiftISODate(to, -29);
       const prefFrom = customFrom || from || fromISO;
       const prefTo = customTo || to;
       setCustomFrom(prefFrom);
@@ -57,9 +54,7 @@ export default function PeriodPicker({
   }
 
   function shiftWeek(days: number) {
-    const d = new Date(week + "T00:00:00");
-    d.setUTCDate(d.getUTCDate() + days);
-    push({ mode: "week", week: weekStartOf(d.toISOString().slice(0, 10)) });
+    push({ mode: "week", week: weekStartOf(shiftISODate(week, days)) });
   }
 
   return (
@@ -84,7 +79,7 @@ export default function PeriodPicker({
         <div className="min-w-[220px]">
           <DateField
             compact
-            value={from || new Date().toISOString().slice(0, 10)}
+            value={from || todayInTimeZone()}
             onChange={(v) => push({ mode: "day", from: v, to: null, week: null, month: null })}
           />
         </div>

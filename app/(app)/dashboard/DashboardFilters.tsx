@@ -3,7 +3,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Filter, Printer, RotateCcw, Calendar, ArrowDownWideNarrow, Link2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { monthWindow, currentMonth } from "@/lib/dates";
+import { monthWindow, currentMonth, resolveDashboardPeriod } from "@/lib/dates";
 import DateField from "@/components/DateField";
 
 type Range = "7d" | "30d" | "90d" | "month" | "custom";
@@ -37,7 +37,6 @@ export default function DashboardFilters({
   minEng,
   linkOnly,
   account,
-  week,
 }: {
   range: Range;
   from: string;
@@ -47,7 +46,6 @@ export default function DashboardFilters({
   minEng: number;
   linkOnly: boolean;
   account: number;
-  week: string;
 }) {
   const router = useRouter();
   const sp = useSearchParams();
@@ -62,7 +60,7 @@ export default function DashboardFilters({
   function pushParams(patch: Record<string, string | null>) {
     const params = new URLSearchParams(sp.toString());
     params.set("account", String(account));
-    params.set("week", week);
+    params.delete("week");
     for (const [k, v] of Object.entries(patch)) {
       if (v === null || v === "") params.delete(k);
       else params.set(k, v);
@@ -72,7 +70,12 @@ export default function DashboardFilters({
 
   function pickRange(r: Range) {
     if (r === "custom") {
-      pushParams({ range: "custom", from: customFrom, to: customTo, month: null });
+      const fallback = resolveDashboardPeriod("30d");
+      const nextFrom = customFrom || fallback.from;
+      const nextTo = customTo || fallback.to;
+      setCustomFrom(nextFrom);
+      setCustomTo(nextTo);
+      pushParams({ range: "custom", from: nextFrom, to: nextTo, month: null });
     } else if (r === "month") {
       pushParams({ range: "month", month: month || currentMonth(), from: null, to: null });
     } else {
@@ -106,7 +109,6 @@ export default function DashboardFilters({
     setSortLocal("engagement");
     const params = new URLSearchParams();
     params.set("account", String(account));
-    params.set("week", week);
     start(() => router.push(`/dashboard?${params.toString()}`));
   }
 

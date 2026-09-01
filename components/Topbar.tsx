@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { doLogout } from "@/app/login/actions";
 import { useRouter } from "next/navigation";
 import type { SessionUser } from "@/lib/session";
+import { ACTIVE_ACCOUNT_COOKIE } from "@/lib/account-selection";
 
 export default function Topbar({ user }: { user: SessionUser }) {
   const [open, setOpen] = useState(false);
@@ -20,6 +21,7 @@ export default function Topbar({ user }: { user: SessionUser }) {
 
   async function onLogout() {
     await doLogout();
+    document.cookie = `${ACTIVE_ACCOUNT_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax`;
     router.push("/login");
     router.refresh();
   }

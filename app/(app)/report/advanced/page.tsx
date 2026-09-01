@@ -3,8 +3,9 @@ import EmptyState from "@/components/EmptyState";
 import AccountPicker from "@/components/AccountPicker";
 import ReportSubNav from "../ReportSubNav";
 import AdvancedCompare from "./AdvancedCompare";
-import { getAccessibleAccounts } from "@/lib/account-access";
+import { getAccessibleAccounts, resolveActiveAccount } from "@/lib/account-access";
 import { requirePageRole } from "@/lib/session";
+import { contentEngagementRateSql, contentEngagementSql } from "@/lib/calc";
 
 export const dynamic = "force-dynamic";
 
@@ -45,12 +46,15 @@ export default async function AdvancedReportPage({
     );
   }
 
-  const accountId = sp.account ? parseInt(sp.account) : accounts[0].id;
-  const account = accounts.find((a) => a.id === accountId) ?? accounts[0];
+  const account = await resolveActiveAccount(accounts, sp.account);
+  const engagementSql = contentEngagementSql();
+  const engagementRateSql = contentEngagementRateSql();
 
   // Latest 100 posts for this account — for the selector
   const posts = await dbAll<PostRow>(
-    `SELECT id, post_date, title, link, likes, comments, shares, saves, reposts, reach, plays, impression, engagement, engagement_rate
+    `SELECT id, post_date, title, link, likes, comments, shares, saves, reposts, reach, plays, impression,
+            ${engagementSql} AS engagement,
+            ${engagementRateSql} AS engagement_rate
      FROM content_insight
      WHERE account_id = ?
      ORDER BY post_date DESC, id DESC

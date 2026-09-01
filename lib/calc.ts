@@ -21,6 +21,28 @@ export type WeeklySummary = {
   engagement_by_play: number;
 };
 
+/** Derived metrics are calculated from raw counters so legacy/stale cached totals cannot make reports show zero. */
+export function contentEngagementSql(alias?: string): string {
+  const column = (name: string) => `${alias ? `${alias}.` : ""}${name}`;
+  return `(
+    COALESCE(${column("likes")}, 0) +
+    COALESCE(${column("comments")}, 0) +
+    COALESCE(${column("shares")}, 0) +
+    COALESCE(${column("saves")}, 0) +
+    COALESCE(${column("reposts")}, 0)
+  )`;
+}
+
+export function contentEngagementRateSql(alias?: string): string {
+  const column = (name: string) => `${alias ? `${alias}.` : ""}${name}`;
+  const engagement = contentEngagementSql(alias);
+  return `(CASE
+    WHEN COALESCE(${column("reach")}, 0) > 0 THEN CAST(${engagement} AS REAL) / ${column("reach")}
+    WHEN COALESCE(${column("plays")}, 0) > 0 THEN CAST(${engagement} AS REAL) / ${column("plays")}
+    ELSE 0
+  END)`;
+}
+
 const emptySummary = (week: string): WeeklySummary => ({
   week_start: week,
   total_followers: 0,
@@ -46,11 +68,18 @@ const emptySummary = (week: string): WeeklySummary => ({
  * aggregates — O(1) round-trip regardless of dataset size.
  */
 export async function computeRangeSummary(accountId: number, from: string, to: string): Promise<WeeklySummary> {
+  const engagementSql = contentEngagementSql();
   const profileAgg = await dbGet<{ visit: number; reach: number; new_followers: number }>(
     `SELECT
        COALESCE(SUM(visit_per_day), 0) AS visit,
        COALESCE(SUM(reach_per_day), 0) AS reach,
-       COALESCE(SUM(new_followers), 0) AS new_followers
+       COALESCE(SUM(
+         CASE
+           WHEN COALESCE(new_followers, 0) = 0 AND COALESCE(followers_growth, 0) <> 0
+             THEN followers_growth
+           ELSE COALESCE(new_followers, 0)
+         END
+       ), 0) AS new_followers
      FROM profile_insight
      WHERE account_id = ? AND date >= ? AND date <= ?`,
     [accountId, from, to]
@@ -76,7 +105,7 @@ export async function computeRangeSummary(accountId: number, from: string, to: s
        COALESCE(SUM(comments), 0)   AS comments,
        COALESCE(SUM(shares), 0)     AS shares,
        COALESCE(SUM(saves), 0)      AS saves,
-       COALESCE(SUM(engagement), 0) AS engagement
+       COALESCE(SUM(${engagementSql}), 0) AS engagement
      FROM content_insight
      WHERE account_id = ? AND post_date >= ? AND post_date <= ?`,
     [accountId, from, to]

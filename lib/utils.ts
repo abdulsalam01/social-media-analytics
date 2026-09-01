@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { todayInTimeZone } from "./dates";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -51,6 +52,5 @@ export function fmtRelative(iso: string): string {
 }
 
 export function todayISO(): string {
-  const d = new Date();
-  return d.toISOString().slice(0, 10);
+  return todayInTimeZone();
 }

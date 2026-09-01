@@ -1,6 +1,6 @@
 import { dbAll } from "@/lib/db";
-import { computeRangeSummary, growthDelta } from "@/lib/calc";
-import { weekStartOf, weekLabel, monthRange, currentMonth } from "@/lib/dates";
+import { computeRangeSummary, contentEngagementRateSql, contentEngagementSql, growthDelta } from "@/lib/calc";
+import { currentMonth, isValidISODate, monthRange, todayInTimeZone, weekLabel, weekStartOf } from "@/lib/dates";
 import Link from "next/link";
 import { fmtNum, fmtPct, fmtDate } from "@/lib/utils";
 import PlatformBadge from "@/components/PlatformBadge";
@@ -10,19 +10,12 @@ import PrintButton from "./PrintButton";
 import PeriodPicker from "./PeriodPicker";
 import ReportSubNav from "./ReportSubNav";
 import { TrendingUp, TrendingDown, Minus, ExternalLink } from "lucide-react";
-import { getAccessibleAccounts } from "@/lib/account-access";
+import { getAccessibleAccounts, resolveActiveAccount } from "@/lib/account-access";
 import { requirePageRole } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 type Mode = "day" | "week" | "month" | "range";
-
-const ISO_RE = /^\d{4}-\d{2}-\d{2}$/;
-function validISO(s: string | undefined | null): s is string {
-  if (!s || !ISO_RE.test(s)) return false;
-  const t = Date.parse(s + "T00:00:00Z");
-  return !Number.isNaN(t);
-}
 
 function resolvePeriod(mode: Mode, week: string, month: string, from: string, to: string): { from: string; to: string; label: string; prevFrom: string; prevTo: string } {
   const shift = (iso: string, days: number) => {
@@ -31,7 +24,7 @@ function resolvePeriod(mode: Mode, week: string, month: string, from: string, to
     return d.toISOString().slice(0, 10);
   };
   if (mode === "day") {
-    const day = validISO(from) ? from : new Date().toISOString().slice(0, 10);
+    const day = isValidISODate(from) ? from : todayInTimeZone();
     return { from: day, to: day, label: `Harian: ${day}`, prevFrom: shift(day, -1), prevTo: shift(day, -1) };
   }
   if (mode === "month") {
@@ -45,9 +38,8 @@ function resolvePeriod(mode: Mode, week: string, month: string, from: string, to
   }
   if (mode === "range") {
     // Fallback to last 30 days if from/to missing or malformed
-    if (!validISO(from) || !validISO(to) || from > to) {
-      const today = new Date();
-      const todayISO = today.toISOString().slice(0, 10);
+    if (!isValidISODate(from) || !isValidISODate(to) || from > to) {
+      const todayISO = todayInTimeZone();
       const from30 = shift(todayISO, -29);
       return {
         from: from30, to: todayISO,
@@ -62,8 +54,8 @@ function resolvePeriod(mode: Mode, week: string, month: string, from: string, to
     };
   }
   // week
-  const w = validISO(week) ? week : (() => {
-    const d = new Date().toISOString().slice(0, 10);
+  const w = isValidISODate(week) ? week : (() => {
+    const d = todayInTimeZone();
     return weekStartOf(d);
   })();
   const end = shift(w, 6);
@@ -89,10 +81,9 @@ export default async function ReportPage({
     );
   }
 
-  const accountId = sp.account ? parseInt(sp.account) : accounts[0].id;
-  const account = accounts.find((a) => a.id === accountId) ?? accounts[0];
+  const account = await resolveActiveAccount(accounts, sp.account);
   const mode = (["day", "week", "month", "range"].includes(sp.mode || "") ? sp.mode : "week") as Mode;
-  const week = sp.week || weekStartOf(new Date().toISOString().slice(0, 10));
+  const week = sp.week || weekStartOf(todayInTimeZone());
   const month = sp.month || currentMonth();
   const period = resolvePeriod(mode, week, month, sp.from || "", sp.to || "");
 
@@ -100,12 +91,16 @@ export default async function ReportPage({
   const prev = await computeRangeSummary(account.id, period.prevFrom, period.prevTo);
   const delta = growthDelta(cur, prev);
   const isTT = account.platform === "tiktok";
+  const engagementSql = contentEngagementSql();
+  const engagementRateSql = contentEngagementRateSql();
 
   const posts = await dbAll<{
     id: number; post_date: string; title: string | null; link: string | null; likes: number; comments: number; shares: number; saves: number;
     reach: number; plays: number; impression: number; engagement: number; engagement_rate: number;
   }>(
-    `SELECT id, post_date, title, link, likes, comments, shares, saves, reach, plays, impression, engagement, engagement_rate
+    `SELECT id, post_date, title, link, likes, comments, shares, saves, reach, plays, impression,
+            ${engagementSql} AS engagement,
+            ${engagementRateSql} AS engagement_rate
      FROM content_insight
      WHERE account_id = ? AND post_date >= ? AND post_date <= ?
      ORDER BY post_date ASC, id ASC`,

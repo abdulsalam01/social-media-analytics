@@ -6,7 +6,7 @@ import PlatformBadge from "@/components/PlatformBadge";
 import InputTabs from "./InputTabs";
 import AccountPicker from "@/components/AccountPicker";
 import EntriesList from "./EntriesList";
-import { getAccessibleAccounts } from "@/lib/account-access";
+import { getAccessibleAccounts, resolveActiveAccount } from "@/lib/account-access";
 
 export const dynamic = "force-dynamic";
 
@@ -30,8 +30,7 @@ export default async function InputPage({
       />
     );
   }
-  const accountId = sp.account ? parseInt(sp.account) : accounts[0].id;
-  const account = accounts.find((a) => a.id === accountId) ?? accounts[0];
+  const account = await resolveActiveAccount(accounts, sp.account);
 
   const profilePage = Math.max(1, parseInt(sp.p || "1") || 1);
   const contentPage = Math.max(1, parseInt(sp.c || "1") || 1);

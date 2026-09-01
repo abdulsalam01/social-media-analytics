@@ -5,7 +5,7 @@ import PlatformBadge from "@/components/PlatformBadge";
 import { dbAll, dbGet, type Account, type AccountContentGoals, type ContentIdea, type TrendEvidence } from "@/lib/db";
 import { requirePageRole } from "@/lib/session";
 import ContentIdeasClient, { type GoalFormData, type ResearchRunDto } from "./ContentIdeasClient";
-import { getAccessibleAccounts } from "@/lib/account-access";
+import { getAccessibleAccounts, resolveActiveAccount } from "@/lib/account-access";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -74,8 +74,7 @@ export default async function IdeasPage({ searchParams }: { searchParams: Promis
     );
   }
 
-  const requestedId = Number(params.account);
-  const account = accounts.find((item) => item.id === requestedId) ?? accounts[0];
+  const account = await resolveActiveAccount(accounts, params.account);
   const [goal, ideas, evidence, latestRun] = await Promise.all([
     dbGet<AccountContentGoals>("SELECT * FROM account_content_goals WHERE account_id = ?", [account.id]),
     dbAll<ContentIdea>(
