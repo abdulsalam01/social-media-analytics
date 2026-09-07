@@ -2,6 +2,14 @@ import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { todayInTimeZone } from "./dates";
 
+const DISPLAY_TIME_ZONE = "Asia/Jakarta";
+
+function parseStoredDateTime(iso: string): Date {
+  const normalized = iso.includes("T") ? iso : iso.replace(" ", "T");
+  const hasTimeZone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(normalized);
+  return new Date(hasTimeZone ? normalized : `${normalized}Z`);
+}
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
@@ -21,26 +29,28 @@ export function fmtPct(n: number | null | undefined, digits = 2): string {
 
 export function fmtDate(iso: string): string {
   const d = new Date(iso);
-  return d.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
+  return d.toLocaleDateString("id-ID", {
+    day: "2-digit", month: "short", year: "numeric", timeZone: DISPLAY_TIME_ZONE,
+  });
 }
 
 export function fmtDateTime(iso: string): string {
   // SQLite datetime('now') = "YYYY-MM-DD HH:MM:SS" (UTC, no tz). Treat as UTC.
-  const withTz = iso.includes("T") ? iso : iso.replace(" ", "T") + (iso.endsWith("Z") ? "" : "Z");
-  const d = new Date(withTz);
+  const d = parseStoredDateTime(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString("id-ID", {
+  const formatted = d.toLocaleString("id-ID", {
     day: "2-digit", month: "short", year: "numeric",
-    hour: "2-digit", minute: "2-digit",
+    hour: "2-digit", minute: "2-digit", timeZone: DISPLAY_TIME_ZONE,
   });
+  return `${formatted} WIB`;
 }
 
 export function fmtRelative(iso: string): string {
-  const withTz = iso.includes("T") ? iso : iso.replace(" ", "T") + (iso.endsWith("Z") ? "" : "Z");
-  const d = new Date(withTz);
+  const d = parseStoredDateTime(iso);
   if (Number.isNaN(d.getTime())) return iso;
   const diff = Date.now() - d.getTime();
   const s = Math.floor(diff / 1000);
+  if (s < 0) return fmtDateTime(iso);
   if (s < 60) return "baru saja";
   const m = Math.floor(s / 60);
   if (m < 60) return `${m} menit lalu`;

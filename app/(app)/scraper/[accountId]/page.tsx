@@ -18,15 +18,21 @@ export default async function AccountScraperPage({
   if (!(await hasAccountAccess(user, id))) notFound();
 
   const account = await dbGet(
-    `SELECT id, name, handle, platform, scrape_enabled, last_scraped_at, last_scrape_status
-     FROM accounts WHERE id = ?`,
+    `SELECT a.id, a.name, a.handle, a.platform, a.scrape_enabled, a.last_scraped_at,
+            a.last_scrape_status,
+            COALESCE((
+              SELECT pi.followers FROM profile_insight pi
+              WHERE pi.account_id = a.id
+              ORDER BY pi.date DESC, pi.id DESC LIMIT 1
+            ), 0) AS followers
+     FROM accounts a WHERE a.id = ?`,
     [id]
   );
   if (!account) notFound();
 
   const posts = await dbAll(
-    `SELECT id, post_date, title, link, shortcode, likes, comments, engagement_rate,
-            scrape_enabled, updated_at
+    `SELECT id, post_date, title, link, shortcode, likes, comments, shares, saves,
+            reposts, reach, plays, scrape_enabled, updated_at
      FROM content_insight
      WHERE account_id = ?
      ORDER BY post_date DESC, created_at DESC`,

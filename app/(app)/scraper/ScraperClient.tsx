@@ -6,7 +6,7 @@ import {
   CheckCircle2, XCircle, Clock, AlertTriangle, LinkIcon, Plus,
 } from "lucide-react";
 import Link from "next/link";
-import { cn } from "@/lib/utils";
+import { cn, fmtDateTime, fmtRelative } from "@/lib/utils";
 import { toggleAccountScrape, getScrapeLogs, addTrackedPostUrl } from "./actions";
 
 type AccountRow = {
@@ -28,16 +28,6 @@ type LogRow = {
   posts_updated: number;
   error: string | null;
 };
-
-function fmtRelative(iso: string) {
-  const diff = Date.now() - new Date(iso + "Z").getTime();
-  const m = Math.floor(diff / 60000);
-  if (m < 1) return "baru saja";
-  if (m < 60) return `${m} mnt lalu`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h} jam lalu`;
-  return `${Math.floor(h / 24)} hari lalu`;
-}
 
 function ScrapeToggle({ accountId, enabled }: { accountId: number; enabled: boolean }) {
   const [on, setOn] = useState(enabled);
@@ -230,10 +220,7 @@ function ScrapeLogPanel({ accountId }: { accountId: number }) {
                 <Clock className="w-3 h-3" />
                 <span title={log.scraped_at}>{fmtRelative(log.scraped_at)}</span>
                 <span className="text-slate-300 mx-1">·</span>
-                <span>{new Date(log.scraped_at + "Z").toLocaleString("id-ID", {
-                  day: "numeric", month: "short", year: "numeric",
-                  hour: "2-digit", minute: "2-digit"
-                })}</span>
+                <span>{fmtDateTime(log.scraped_at)}</span>
               </div>
             </div>
 

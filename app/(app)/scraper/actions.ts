@@ -5,6 +5,7 @@ import { requireRole } from "@/lib/session";
 import { auditLog } from "@/lib/auth";
 import { extractPostIdFromUrl, runScrapeForPost } from "@/lib/scraper";
 import { getAccountIdForContent, hasAccountAccess } from "@/lib/account-access";
+import { todayInTimeZone } from "@/lib/dates";
 
 export async function toggleAccountScrape(accountId: number, enabled: boolean) {
   const user = await requireRole(["admin", "editor"]);
@@ -99,7 +100,7 @@ export async function addTrackedPostUrl(input: unknown) {
     ? `https://www.instagram.com/p/${extracted.id}/`
     : p.data.url;
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = todayInTimeZone();
   const ins = await dbRun(
     `INSERT INTO content_insight
      (account_id, post_date, title, link, shortcode, likes, comments, shares, saves, reposts,

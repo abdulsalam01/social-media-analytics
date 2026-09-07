@@ -1,11 +1,13 @@
 import { dbAll, dbGet, dbRun, dbTx, txRun } from "@/lib/db";
 import { auditLog } from "@/lib/auth";
+import { calculateEngagementMetrics } from "@/lib/engagement";
+import { todayInTimeZone } from "@/lib/dates";
 
 export interface ScrapedPost {
   shortcode: string;
   link: string;
   caption: string | null;
-  post_date: string;
+  post_date?: string;
   likes: number;
   comments: number;
   plays?: number;
@@ -124,9 +126,7 @@ export async function scrapeTikTokProfile(handle: string): Promise<ScrapeProfile
     const posts: ScrapedPost[] = rawItems.map((item) => {
       const videoId: string = item.id ?? item.aweme_id ?? "";
       const ts: number = item.createTime ?? item.create_time ?? 0;
-      const post_date = ts
-        ? new Date(ts * 1000).toISOString().split("T")[0]
-        : new Date().toISOString().split("T")[0];
+      const post_date = ts ? new Date(ts * 1000).toISOString().split("T")[0] : undefined;
       const s = item.stats ?? item.statistics ?? {};
 
       return {
@@ -259,9 +259,7 @@ export async function scrapeInstagramProfile(handle: string): Promise<ScrapeProf
       const node = edge.node;
       const shortcode: string = node.shortcode ?? "";
       const ts: number = node.taken_at_timestamp ?? 0;
-      const post_date = ts
-        ? new Date(ts * 1000).toISOString().split("T")[0]
-        : new Date().toISOString().split("T")[0];
+      const post_date = ts ? new Date(ts * 1000).toISOString().split("T")[0] : undefined;
       const captionText: string | null =
         node.edge_media_to_caption?.edges?.[0]?.node?.text ??
         node.accessibility_caption ??
@@ -295,6 +293,11 @@ type ContentRow = {
   shortcode: string | null;
   link: string | null;
   scrape_enabled: number;
+  shares: number;
+  saves: number;
+  reposts: number;
+  reach: number;
+  plays: number;
 };
 
 export async function runScrapeForAccount(
@@ -353,9 +356,20 @@ export async function runScrapeForAccount(
     );
   }
 
+  let followersForRate = result.followers ?? 0;
+  if (followersForRate <= 0) {
+    const latestProfile = await dbGet<{ followers: number }>(
+      `SELECT followers FROM profile_insight
+       WHERE account_id = ? ORDER BY date DESC, id DESC LIMIT 1`,
+      [accountId]
+    );
+    followersForRate = latestProfile?.followers ?? 0;
+  }
+
   // Fetch existing content rows for this account to match by shortcode or link
   const existingContent = await dbAll<ContentRow>(
-    "SELECT id, shortcode, link, scrape_enabled FROM content_insight WHERE account_id = ?",
+    `SELECT id, shortcode, link, scrape_enabled, shares, saves, reposts, reach, plays
+     FROM content_insight WHERE account_id = ?`,
     [accountId]
   );
 
@@ -371,39 +385,53 @@ export async function runScrapeForAccount(
 
       if (existing) {
         if (existing.scrape_enabled === 0) continue; // user disabled auto-update for this post
-        const engagement = post.likes + post.comments;
-        const denom = (post.plays ?? 0) > 0 ? post.plays! : (result.followers || 1);
-        const rate = engagement > 0 ? engagement / denom : 0;
+        const nextPlays = (post.plays ?? 0) > 0 ? post.plays! : existing.plays;
+        const nextShares = (post.shares ?? 0) > 0 ? post.shares! : existing.shares;
+        const metrics = calculateEngagementMetrics({
+          likes: post.likes,
+          comments: post.comments,
+          shares: nextShares,
+          saves: existing.saves,
+          reposts: existing.reposts,
+          reach: existing.reach,
+          plays: nextPlays,
+          followers: followersForRate,
+        });
         await txRun(tx,
           `UPDATE content_insight
-           SET likes = ?, comments = ?,
+           SET post_date = COALESCE(?, post_date), likes = ?, comments = ?,
                plays = CASE WHEN ? > 0 THEN ? ELSE plays END,
                shares = CASE WHEN ? > 0 THEN ? ELSE shares END,
                engagement = ?, engagement_rate = ?,
                shortcode = ?, updated_at = datetime('now')
            WHERE id = ?`,
           [
-            post.likes, post.comments,
+            post.post_date ?? null, post.likes, post.comments,
             post.plays ?? 0, post.plays ?? 0,
             post.shares ?? 0, post.shares ?? 0,
-            engagement, rate,
+            metrics.engagement, metrics.engagementRate ?? 0,
             post.shortcode, existing.id,
           ]
         );
         postsUpdated++;
       } else {
         // New post discovered via scrape — insert with scrape_enabled = 1
-        const engagement = post.likes + post.comments;
-        const denom = (post.plays ?? 0) > 0 ? post.plays! : (result.followers || 1);
-        const rate = engagement > 0 ? engagement / denom : 0;
+        const metrics = calculateEngagementMetrics({
+          likes: post.likes,
+          comments: post.comments,
+          shares: post.shares,
+          plays: post.plays,
+          followers: followersForRate,
+        });
         await txRun(tx,
           `INSERT INTO content_insight
            (account_id, post_date, title, link, shortcode, likes, comments, shares, saves,
             follows, reach, impression, plays, engagement, engagement_rate,
             scrape_enabled, profile_visit, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, ?, ?, ?, 1, 0, datetime('now'), datetime('now'))`,
-          [accountId, post.post_date, post.caption, post.link, post.shortcode,
-           post.likes, post.comments, post.shares ?? 0, post.plays ?? 0, engagement, rate]
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, ?, ?, ?, 1, 0, datetime('now'), datetime('now'))`,
+          [accountId, post.post_date ?? todayInTimeZone(), post.caption, post.link, post.shortcode,
+           post.likes, post.comments, post.shares ?? 0, post.plays ?? 0,
+           metrics.engagement, metrics.engagementRate ?? 0]
         );
         postsUpdated++;
       }
@@ -459,8 +487,14 @@ export async function runScrapeForPost(postId: number, userId?: number): Promise
     shortcode: string | null;
     link: string | null;
     scrape_enabled: number;
+    shares: number;
+    saves: number;
+    reposts: number;
+    reach: number;
+    plays: number;
   }>(
-    "SELECT id, account_id, shortcode, link, scrape_enabled FROM content_insight WHERE id = ?",
+    `SELECT id, account_id, shortcode, link, scrape_enabled, shares, saves, reposts, reach, plays
+     FROM content_insight WHERE id = ?`,
     [postId]
   );
 
@@ -472,6 +506,13 @@ export async function runScrapeForPost(postId: number, userId?: number): Promise
     [row.account_id]
   );
   if (!account) return { post_id: postId, status: "error", matched: false, error: "Account not found" };
+
+  const latestProfile = await dbGet<{ followers: number }>(
+    `SELECT followers FROM profile_insight
+     WHERE account_id = ? ORDER BY date DESC, id DESC LIMIT 1`,
+    [row.account_id]
+  );
+  const followers = latestProfile?.followers ?? 0;
 
   // Determine shortcode: use stored shortcode, or extract from link
   let shortcode = row.shortcode;
@@ -490,18 +531,27 @@ export async function runScrapeForPost(postId: number, userId?: number): Promise
       const likes = direct.likes ?? 0;
       const comments = direct.comments ?? 0;
       const plays = direct.plays ?? direct.views ?? 0;
-      const engagement = likes + comments;
-      const denom = plays > 0 ? plays : 1;
-      const rate = engagement > 0 ? engagement / denom : 0;
+      const effectivePlays = plays > 0 ? plays : row.plays;
+      const metrics = calculateEngagementMetrics({
+        likes,
+        comments,
+        shares: row.shares,
+        saves: row.saves,
+        reposts: row.reposts,
+        reach: row.reach,
+        plays: effectivePlays,
+        followers,
+      });
 
       await dbRun(
         `UPDATE content_insight
-         SET likes = ?, comments = ?,
+         SET post_date = COALESCE(?, post_date), likes = ?, comments = ?,
              plays = CASE WHEN ? > 0 THEN ? ELSE plays END,
              engagement = ?, engagement_rate = ?,
              shortcode = ?, updated_at = datetime('now')
          WHERE id = ?`,
-        [likes, comments, plays, plays, engagement, rate, shortcode, postId]
+        [direct.post_date ?? null, likes, comments, plays, plays,
+         metrics.engagement, metrics.engagementRate ?? 0, shortcode, postId]
       );
 
       if (userId) {
@@ -535,23 +585,32 @@ export async function runScrapeForPost(postId: number, userId?: number): Promise
     };
   }
 
-  const engagement = match.likes + match.comments;
-  const denom = (match.plays ?? 0) > 0 ? match.plays! : (result.followers || 1);
-  const rate = engagement > 0 ? engagement / denom : 0;
+  const nextPlays = (match.plays ?? 0) > 0 ? match.plays! : row.plays;
+  const nextShares = (match.shares ?? 0) > 0 ? match.shares! : row.shares;
+  const metrics = calculateEngagementMetrics({
+    likes: match.likes,
+    comments: match.comments,
+    shares: nextShares,
+    saves: row.saves,
+    reposts: row.reposts,
+    reach: row.reach,
+    plays: nextPlays,
+    followers: (result.followers ?? 0) > 0 ? result.followers : followers,
+  });
 
   await dbRun(
     `UPDATE content_insight
-     SET likes = ?, comments = ?,
+     SET post_date = COALESCE(?, post_date), likes = ?, comments = ?,
          plays = CASE WHEN ? > 0 THEN ? ELSE plays END,
          shares = CASE WHEN ? > 0 THEN ? ELSE shares END,
          engagement = ?, engagement_rate = ?,
          shortcode = ?, updated_at = datetime('now')
-     WHERE id = ?`,
+    WHERE id = ?`,
     [
-      match.likes, match.comments,
+      match.post_date ?? null, match.likes, match.comments,
       match.plays ?? 0, match.plays ?? 0,
       match.shares ?? 0, match.shares ?? 0,
-      engagement, rate, match.shortcode, postId,
+      metrics.engagement, metrics.engagementRate ?? 0, match.shortcode, postId,
     ]
   );
 

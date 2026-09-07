@@ -3,7 +3,8 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { RefreshCw, ExternalLink, CheckCircle2, XCircle, Clock } from "lucide-react";
 import Link from "next/link";
-import { cn } from "@/lib/utils";
+import { cn, fmtDate, fmtDateTime, fmtPct, fmtRelative } from "@/lib/utils";
+import { calculateEngagementMetrics, engagementRateBasisLabel } from "@/lib/engagement";
 import { togglePostScrape } from "../actions";
 
 type PostRow = {
@@ -14,7 +15,11 @@ type PostRow = {
   shortcode: string | null;
   likes: number;
   comments: number;
-  engagement_rate: number;
+  shares: number;
+  saves: number;
+  reposts: number;
+  reach: number;
+  plays: number;
   scrape_enabled: number;
   updated_at: string;
 };
@@ -26,6 +31,7 @@ type AccountRow = {
   scrape_enabled: number;
   last_scraped_at: string | null;
   last_scrape_status: string | null;
+  followers: number;
 };
 
 type LastLog = {
@@ -36,16 +42,6 @@ type LastLog = {
   posts_updated: number;
   error: string | null;
 };
-
-function fmtRelative(iso: string) {
-  const diff = Date.now() - new Date(iso + "Z").getTime();
-  const m = Math.floor(diff / 60000);
-  if (m < 1) return "baru saja";
-  if (m < 60) return `${m} mnt lalu`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h} jam lalu`;
-  return `${Math.floor(h / 24)} hari lalu`;
-}
 
 function LastScrapeStatus({ log }: { log: LastLog }) {
   const isError = log.status === "error";
@@ -70,10 +66,7 @@ function LastScrapeStatus({ log }: { log: LastLog }) {
             <span className="flex items-center gap-1 text-xs text-slate-500">
               <Clock className="w-3 h-3" />
               {fmtRelative(log.scraped_at)} &middot;{" "}
-              {new Date(log.scraped_at + "Z").toLocaleString("id-ID", {
-                day: "numeric", month: "short", year: "numeric",
-                hour: "2-digit", minute: "2-digit",
-              })}
+              {fmtDateTime(log.scraped_at)}
             </span>
           </div>
 
@@ -273,6 +266,14 @@ export default function PostScrapeClient({
       )}
 
       <div className="card">
+        <div className="card-hd items-start">
+          <div>
+            <div className="font-semibold">Post yang Dilacak</div>
+            <div className="mt-1 text-xs font-normal text-slate-500">
+              ER = (likes + komentar + share + save + repost) ÷ reach. Jika reach kosong, gunakan plays; jika keduanya kosong, followers terbaru.
+            </div>
+          </div>
+        </div>
         <div className="card-bd p-0">
           {posts.length === 0 ? (
             <div className="px-5 py-10 text-center text-slate-500 text-sm">
@@ -282,20 +283,25 @@ export default function PostScrapeClient({
             <table className="w-full">
               <thead>
                 <tr className="text-left text-xs uppercase tracking-wider text-slate-500 border-b border-slate-100">
-                  <th className="px-5 py-3">Tanggal</th>
+                  <th className="px-5 py-3">Tanggal Publikasi</th>
                   <th className="px-5 py-3">Judul / Caption</th>
                   <th className="px-5 py-3 text-right">Likes</th>
                   <th className="px-5 py-3 text-right">Komentar</th>
                   <th className="px-5 py-3 text-right">ER</th>
-                  <th className="px-5 py-3">Update Terakhir</th>
+                  <th className="px-5 py-3">Metrik Disinkronkan</th>
                   <th className="px-5 py-3 text-center">Auto-Update</th>
                   <th className="px-5 py-3 text-right">Aksi</th>
                 </tr>
               </thead>
               <tbody>
-                {posts.map((p) => (
+                {posts.map((p) => {
+                  const metrics = calculateEngagementMetrics({ ...p, followers: account.followers });
+                  const rateTitle = metrics.basis
+                    ? `${metrics.engagement.toLocaleString("id-ID")} interaksi ÷ ${metrics.denominator.toLocaleString("id-ID")} ${engagementRateBasisLabel(metrics.basis)}`
+                    : "ER belum dapat dihitung karena reach, plays, dan followers belum tersedia";
+                  return (
                   <tr key={p.id} className="border-b border-slate-50 hover:bg-slate-50/50">
-                    <td className="px-5 py-3 text-sm text-slate-600 whitespace-nowrap">{p.post_date}</td>
+                    <td className="px-5 py-3 text-sm text-slate-600 whitespace-nowrap">{fmtDate(p.post_date)}</td>
                     <td className="px-5 py-3 max-w-xs">
                       <div className="text-sm text-slate-900 truncate">
                         {p.title ?? <span className="text-slate-400 italic">Tanpa judul</span>}
@@ -307,19 +313,19 @@ export default function PostScrapeClient({
                     <td className="px-5 py-3 text-right text-sm tabular-nums">{p.likes.toLocaleString()}</td>
                     <td className="px-5 py-3 text-right text-sm tabular-nums">{p.comments.toLocaleString()}</td>
                     <td className="px-5 py-3 text-right text-sm tabular-nums">
-                      {(p.engagement_rate * 100).toFixed(1)}%
+                      <span title={rateTitle}>
+                        {metrics.engagementRate === null ? "—" : fmtPct(metrics.engagementRate, 1)}
+                      </span>
                     </td>
                     <td className="px-5 py-3 text-xs text-slate-500 whitespace-nowrap">
-                      {new Date(p.updated_at + "Z").toLocaleString("id-ID", {
-                        day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
-                      })}
+                      {fmtDateTime(p.updated_at)}
                     </td>
                     <td className="px-5 py-3 text-center">
                       <PostScrapeToggle postId={p.id} enabled={p.scrape_enabled === 1} />
                     </td>
                     <td className="px-5 py-3 text-right flex items-center justify-end gap-2">
                       <PostScrapeNowButton postId={p.id} disabled={p.scrape_enabled === 0} />
-                      <Link href={`/content/${p.id}`} className="btn-ghost !py-1 !px-2 text-xs">Detail</Link>
+                      <Link href={`/content/${p.id}?from=${encodeURIComponent(`/scraper/${account.id}`)}`} className="btn-ghost !py-1 !px-2 text-xs">Detail</Link>
                       {p.link && (
                         <a
                           href={p.link}
@@ -332,7 +338,8 @@ export default function PostScrapeClient({
                       )}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           )}

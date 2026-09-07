@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ExternalLink, Heart, MessageCircle, Share2, Bookmark, Eye, Play, TrendingUp, Users, Zap, Calendar, Clock, RefreshCw } from "lucide-react";
 import { dbGet, Account, ContentInsight } from "@/lib/db";
-import { fmtNum, fmtPct, fmtDate, fmtDateTime, fmtRelative } from "@/lib/utils";
+import { fmtNum, fmtPct, fmtDate, fmtDateTime } from "@/lib/utils";
+import { calculateEngagementMetrics, engagementRateBasisLabel } from "@/lib/engagement";
 import PlatformBadge from "@/components/PlatformBadge";
 import DetailActions from "./DetailActions";
 import { hasAccountAccess } from "@/lib/account-access";
@@ -37,6 +38,19 @@ export default async function ContentDetailPage({
 
   const account = await dbGet<Account>("SELECT * FROM accounts WHERE id = ?", [content.account_id]);
   if (!account) notFound();
+
+  const latestProfile = await dbGet<{ followers: number }>(
+    `SELECT followers FROM profile_insight
+     WHERE account_id = ? ORDER BY date DESC, id DESC LIMIT 1`,
+    [account.id]
+  );
+  const metrics = calculateEngagementMetrics({
+    ...content,
+    followers: latestProfile?.followers ?? 0,
+  });
+  const rateHint = metrics.basis
+    ? `${fmtNum(metrics.engagement)} interaksi ÷ ${fmtNum(metrics.denominator)} ${engagementRateBasisLabel(metrics.basis)}`
+    : "Reach, plays, dan followers belum tersedia";
 
   const isTT = account.platform === "tiktok";
   const externalUrl = normalizeLink(content.link, account.platform);
@@ -94,8 +108,14 @@ export default async function ContentDetailPage({
 
         <div className="p-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <MetricBlock icon={<Zap className="w-4 h-4" />} label="Engagement" value={fmtNum(content.engagement)} tone="brand" />
-            <MetricBlock icon={<TrendingUp className="w-4 h-4" />} label="Engagement Rate" value={fmtPct(content.engagement_rate)} tone="green" />
+            <MetricBlock icon={<Zap className="w-4 h-4" />} label="Engagement" value={fmtNum(metrics.engagement)} tone="brand" />
+            <MetricBlock
+              icon={<TrendingUp className="w-4 h-4" />}
+              label="Engagement Rate"
+              value={metrics.engagementRate === null ? "—" : fmtPct(metrics.engagementRate)}
+              hint={rateHint}
+              tone="green"
+            />
             <MetricBlock icon={<Heart className="w-4 h-4" />} label="Likes" value={fmtNum(content.likes)} tone="pink" />
             <MetricBlock icon={<MessageCircle className="w-4 h-4" />} label="Comments" value={fmtNum(content.comments)} tone="brand" />
             <MetricBlock icon={<Share2 className="w-4 h-4" />} label="Shares" value={fmtNum(content.shares)} tone="green" />
@@ -118,7 +138,7 @@ export default async function ContentDetailPage({
 
           <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <div className="text-xs uppercase text-slate-500">Tanggal Post</div>
+              <div className="text-xs uppercase text-slate-500">Tanggal Publikasi</div>
               <div className="mt-1 text-sm text-slate-800">{fmtDate(content.post_date)}</div>
             </div>
             <div>
@@ -132,20 +152,22 @@ export default async function ContentDetailPage({
               </div>
             </div>
             <div>
-              <div className="text-xs uppercase text-slate-500 flex items-center gap-1"><Clock className="w-3 h-3" /> Ditambahkan</div>
+              <div className="text-xs uppercase text-slate-500 flex items-center gap-1"><Clock className="w-3 h-3" /> Mulai Dilacak</div>
               <div className="mt-1 text-sm text-slate-800" title={fmtDateTime(content.created_at)}>
-                {fmtDateTime(content.created_at)} <span className="text-xs text-slate-400">({fmtRelative(content.created_at)})</span>
+                {fmtDateTime(content.created_at)}
               </div>
+              <div className="mt-0.5 text-xs text-slate-400">Waktu post masuk ke pelacak, bukan waktu publikasi.</div>
             </div>
             <div>
-              <div className="text-xs uppercase text-slate-500 flex items-center gap-1"><RefreshCw className="w-3 h-3" /> Terakhir Diubah</div>
+              <div className="text-xs uppercase text-slate-500 flex items-center gap-1"><RefreshCw className="w-3 h-3" /> Metrik Terakhir Disinkronkan</div>
               <div className="mt-1 text-sm text-slate-800" title={fmtDateTime(content.updated_at)}>
                 {content.updated_at !== content.created_at ? (
-                  <>{fmtDateTime(content.updated_at)} <span className="text-xs text-slate-400">({fmtRelative(content.updated_at)})</span></>
+                  fmtDateTime(content.updated_at)
                 ) : (
-                  <span className="text-slate-400 italic">Belum pernah diedit</span>
+                  <span className="text-slate-400 italic">Belum pernah disinkronkan ulang</span>
                 )}
               </div>
+              <div className="mt-0.5 text-xs text-slate-400">Waktu likes, komentar, dan metrik lain diperbarui.</div>
             </div>
           </div>
 
@@ -161,7 +183,7 @@ export default async function ContentDetailPage({
   );
 }
 
-function MetricBlock({ icon, label, value, tone }: { icon: React.ReactNode; label: string; value: string; tone: "brand" | "green" | "pink" | "amber" }) {
+function MetricBlock({ icon, label, value, hint, tone }: { icon: React.ReactNode; label: string; value: string; hint?: string; tone: "brand" | "green" | "pink" | "amber" }) {
   const toneMap = { brand: "bg-brand-50 text-brand-600", green: "bg-emerald-50 text-emerald-600", pink: "bg-pink-50 text-pink-600", amber: "bg-amber-50 text-amber-600" } as const;
   return (
     <div className="rounded-xl border border-slate-200 p-4">
@@ -170,6 +192,7 @@ function MetricBlock({ icon, label, value, tone }: { icon: React.ReactNode; labe
         <div className="text-xs text-slate-500 uppercase tracking-wider">{label}</div>
       </div>
       <div className="mt-2 text-xl font-bold text-slate-900">{value}</div>
+      {hint && <div className="mt-1 text-[11px] leading-snug text-slate-400">{hint}</div>}
     </div>
   );
 }
