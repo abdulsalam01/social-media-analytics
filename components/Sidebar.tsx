@@ -14,7 +14,7 @@ const nav = [
   { href: "/input", label: "Input Data", icon: PencilLine, hint: "Masukin data mingguan", roles: ["admin", "editor"] },
   { href: "/compare", label: "Bandingkan Brand", icon: GitCompareArrows, hint: "Head-to-head brand", roles: ["admin", "editor", "viewer"] },
   { href: "/report", label: "Laporan", icon: FileBarChart2, hint: "Report mingguan + PDF", roles: ["admin", "editor", "viewer"] },
-  { href: "/scraper", label: "Pelacak Otomatis", icon: ScanSearch, hint: "Scraping IG & TikTok harian", roles: ["admin"] },
+  { href: "/scraper", label: "Pelacak Otomatis", icon: ScanSearch, hint: "Scraping IG & TikTok harian", roles: ["admin", "editor"] },
   { href: "/settings", label: "Pengaturan", icon: Settings, hint: "Pengguna, backup", roles: ["admin"] },
 ] satisfies { href: string; label: string; icon: React.ComponentType<{ className?: string }>; hint: string; roles: Role[] }[];
 

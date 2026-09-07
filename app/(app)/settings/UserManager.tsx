@@ -1,11 +1,12 @@
 "use client";
 import { useState, useTransition } from "react";
-import { UserPlus, Trash2, KeyRound, ShieldCheck, ChevronDown, Save } from "lucide-react";
-import { createUser, deleteUser, resetPassword, setUserAccountAssignments } from "./actions";
+import { UserPlus, Trash2, KeyRound, UserCog, ChevronDown, Save, ShieldCheck } from "lucide-react";
+import { createUser, deleteUser, resetPassword, updateUserAccess } from "./actions";
 import { useToast } from "@/components/Toast";
 import { useRouter } from "next/navigation";
 
-type Row = { id: number; email: string; name: string; role: string; created_at: string; account_ids: number[] };
+type UserRole = "admin" | "editor" | "viewer";
+type Row = { id: number; email: string; name: string; role: UserRole; created_at: string; account_ids: number[] };
 type AccountRow = { id: number; name: string; handle: string; platform: string };
 
 export default function UserManager({ users, accounts, meRole, meId }: { users: Row[]; accounts: AccountRow[]; meRole: string; meId: number }) {
@@ -69,9 +70,9 @@ export default function UserManager({ users, accounts, meRole, meId }: { users: 
                 </div>
                 {isAdmin && (
                   <div className="flex gap-1 shrink-0">
-                    {u.role !== "admin" && (
-                      <button className="btn-ghost !px-2 !py-1.5" onClick={() => setAssignmentUser(assignmentOpen ? null : u.id)} title="Atur akses akun">
-                        <ShieldCheck className="w-4 h-4" />
+                    {u.id !== meId && (
+                      <button className="btn-ghost !px-2 !py-1.5" onClick={() => setAssignmentUser(assignmentOpen ? null : u.id)} title="Edit role dan akses akun">
+                        <UserCog className="w-4 h-4" />
                         <ChevronDown className={`w-3 h-3 transition ${assignmentOpen ? "rotate-180" : ""}`} />
                       </button>
                     )}
@@ -84,8 +85,8 @@ export default function UserManager({ users, accounts, meRole, meId }: { users: 
                   </div>
                 )}
               </div>
-              {assignmentOpen && u.role !== "admin" && (
-                <AssignmentEditor user={u} accounts={accounts} onClose={() => setAssignmentUser(null)} />
+              {assignmentOpen && u.id !== meId && (
+                <AccessEditor user={u} accounts={accounts} onClose={() => setAssignmentUser(null)} />
               )}
             </div>
           );
@@ -119,8 +120,9 @@ export default function UserManager({ users, accounts, meRole, meId }: { users: 
   );
 }
 
-function AssignmentEditor({ user, accounts, onClose }: { user: Row; accounts: AccountRow[]; onClose: () => void }) {
-  const [selected, setSelected] = useState<number[]>(user.account_ids);
+function AccessEditor({ user, accounts, onClose }: { user: Row; accounts: AccountRow[]; onClose: () => void }) {
+  const [role, setRole] = useState<UserRole>(user.role);
+  const [selected, setSelected] = useState<number[]>(user.role === "admin" ? accounts.map((account) => account.id) : user.account_ids);
   const [pending, start] = useTransition();
   const toast = useToast();
   const router = useRouter();
@@ -131,39 +133,67 @@ function AssignmentEditor({ user, accounts, onClose }: { user: Row; accounts: Ac
 
   function save() {
     start(async () => {
-      const result = await setUserAccountAssignments({ userId: user.id, accountIds: selected });
+      const result = await updateUserAccess({ userId: user.id, role, accountIds: selected });
       if (!result.ok) return toast("error", result.error);
-      toast("success", `${result.count} akun ditugaskan ke ${user.name}.`);
+      toast(
+        "success",
+        result.role === "admin"
+          ? `${user.name} sekarang admin dengan akses semua akun.`
+          : `Akses ${user.name} diperbarui: ${result.role}, ${result.count} akun.`
+      );
       onClose();
       router.refresh();
     });
   }
 
   return (
-    <div className="border-t border-slate-100 bg-slate-50 p-3">
-      <div className="text-xs font-semibold text-slate-700 mb-2">Pilih akun yang dapat diakses sesuai role pengguna</div>
-      {!accounts.length ? (
+    <div className="border-t border-slate-100 bg-slate-50 p-3 space-y-3">
+      <div>
+        <label className="label !text-xs">Role pengguna</label>
+        <select className="input" value={role} onChange={(event) => setRole(event.target.value as UserRole)} disabled={pending}>
+          <option value="viewer">Viewer — hanya melihat data</option>
+          <option value="editor">Editor — input data dan menjalankan scraper</option>
+          <option value="admin">Admin — seluruh akses</option>
+        </select>
+      </div>
+
+      {role === "admin" ? (
+        <div className="rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-xs text-brand-700 flex items-start gap-2">
+          <ShieldCheck className="w-4 h-4 mt-0.5 shrink-0" />
+          Admin otomatis mendapat akses ke semua akun dan menu pengaturan.
+        </div>
+      ) : !accounts.length ? (
         <div className="text-xs text-slate-400 py-2">Belum ada akun sosial media.</div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-52 overflow-y-auto">
-          {accounts.map((account) => (
-            <label key={account.id} className="flex items-start gap-2 rounded-lg border border-slate-200 bg-white p-2 cursor-pointer">
-              <input type="checkbox" className="mt-0.5" checked={selected.includes(account.id)} onChange={() => toggle(account.id)} />
-              <span className="min-w-0">
-                <span className="block text-xs font-medium text-slate-800 truncate">{account.name}</span>
-                <span className="block text-[11px] text-slate-500 truncate">{account.platform === "instagram" ? "IG" : "TikTok"} · @{account.handle}</span>
-              </span>
-            </label>
-          ))}
+        <div>
+          <div className="text-xs font-semibold text-slate-700 mb-2">Akun yang dapat diakses</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-52 overflow-y-auto">
+            {accounts.map((account) => (
+              <label key={account.id} className="flex items-start gap-2 rounded-lg border border-slate-200 bg-white p-2 cursor-pointer">
+                <input type="checkbox" className="mt-0.5" checked={selected.includes(account.id)} onChange={() => toggle(account.id)} disabled={pending} />
+                <span className="min-w-0">
+                  <span className="block text-xs font-medium text-slate-800 truncate">{account.name}</span>
+                  <span className="block text-[11px] text-slate-500 truncate">{account.platform === "instagram" ? "IG" : "TikTok"} · @{account.handle}</span>
+                </span>
+              </label>
+            ))}
+          </div>
         </div>
       )}
       <div className="mt-3 flex items-center justify-between gap-2">
-        <button type="button" className="text-xs text-brand-600 hover:underline" onClick={() => setSelected(selected.length === accounts.length ? [] : accounts.map((account) => account.id))}>
-          {selected.length === accounts.length && accounts.length ? "Lepas semua" : "Pilih semua"}
-        </button>
-        <button type="button" className="btn-primary !py-1.5" disabled={pending} onClick={save}>
-          <Save className="w-3.5 h-3.5" /> {pending ? "Menyimpan…" : "Simpan Akses"}
-        </button>
+        <div>
+          {role !== "admin" && accounts.length > 0 && (
+            <button type="button" className="text-xs text-brand-600 hover:underline" onClick={() => setSelected(selected.length === accounts.length ? [] : accounts.map((account) => account.id))} disabled={pending}>
+              {selected.length === accounts.length ? "Lepas semua" : "Pilih semua"}
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <button type="button" className="btn-ghost !py-1.5" onClick={onClose} disabled={pending}>Batal</button>
+          <button type="button" className="btn-primary !py-1.5" disabled={pending} onClick={save}>
+            <Save className="w-3.5 h-3.5" /> {pending ? "Menyimpan…" : "Simpan Akses"}
+          </button>
+        </div>
       </div>
     </div>
   );

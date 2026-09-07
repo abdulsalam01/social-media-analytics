@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { dbGet, dbAll } from "@/lib/db";
 import { requirePageRole } from "@/lib/session";
+import { hasAccountAccess } from "@/lib/account-access";
 import PostScrapeClient from "./PostScrapeClient";
 
 export const dynamic = "force-dynamic";
@@ -10,10 +11,11 @@ export default async function AccountScraperPage({
 }: {
   params: Promise<{ accountId: string }>;
 }) {
-  await requirePageRole(["admin"]);
+  const user = await requirePageRole(["admin", "editor"]);
   const { accountId } = await params;
   const id = parseInt(accountId, 10);
   if (isNaN(id)) notFound();
+  if (!(await hasAccountAccess(user, id))) notFound();
 
   const account = await dbGet(
     `SELECT id, name, handle, platform, scrape_enabled, last_scraped_at, last_scrape_status

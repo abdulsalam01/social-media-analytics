@@ -51,41 +51,58 @@ export async function resetPassword(id: number, password: string) {
   return { ok: true as const };
 }
 
-const AssignmentSchema = z.object({
+const UserAccessSchema = z.object({
   userId: z.number().int().positive(),
   accountIds: z.array(z.number().int().positive()).max(500),
+  role: z.enum(["admin", "editor", "viewer"]),
 });
 
-export async function setUserAccountAssignments(input: unknown) {
+export async function updateUserAccess(input: unknown) {
   const me = await requireRole(["admin"]);
-  const parsed = AssignmentSchema.safeParse(input);
-  if (!parsed.success) return { ok: false as const, error: "Assignment akun tidak valid" };
+  const parsed = UserAccessSchema.safeParse(input);
+  if (!parsed.success) return { ok: false as const, error: "Pengaturan akses tidak valid" };
 
-  const user = await dbGet<{ id: number; role: string }>("SELECT id, role FROM users WHERE id = ?", [parsed.data.userId]);
-  if (!user) return { ok: false as const, error: "Pengguna tidak ditemukan" };
-  if (user.role === "admin") return { ok: false as const, error: "Admin otomatis memiliki akses ke semua akun" };
+  const target = await dbGet<{ id: number; role: string }>(
+    "SELECT id, role FROM users WHERE id = ?",
+    [parsed.data.userId]
+  );
+  if (!target) return { ok: false as const, error: "Pengguna tidak ditemukan" };
+  if (target.id === me.id && parsed.data.role !== "admin") {
+    return { ok: false as const, error: "Kamu tidak dapat menurunkan role admin milik sendiri" };
+  }
 
-  const accountIds = [...new Set(parsed.data.accountIds)];
+  const accountIds = parsed.data.role === "admin" ? [] : [...new Set(parsed.data.accountIds)];
   if (accountIds.length) {
     const placeholders = accountIds.map(() => "?").join(",");
-    const found = await dbAll<{ id: number }>(`SELECT id FROM accounts WHERE id IN (${placeholders})`, accountIds);
-    if (found.length !== accountIds.length) return { ok: false as const, error: "Ada akun yang tidak ditemukan" };
+    const found = await dbAll<{ id: number }>(
+      `SELECT id FROM accounts WHERE id IN (${placeholders})`,
+      accountIds
+    );
+    if (found.length !== accountIds.length) {
+      return { ok: false as const, error: "Ada akun yang tidak ditemukan" };
+    }
   }
 
   await dbTx(async (tx) => {
-    await txRun(tx, "DELETE FROM user_account_access WHERE user_id = ?", [user.id]);
+    await txRun(tx, "UPDATE users SET role = ? WHERE id = ?", [parsed.data.role, target.id]);
+    await txRun(tx, "DELETE FROM user_account_access WHERE user_id = ?", [target.id]);
     for (const accountId of accountIds) {
       await txRun(
         tx,
         "INSERT INTO user_account_access (user_id, account_id, assigned_by) VALUES (?, ?, ?)",
-        [user.id, accountId, me.id]
+        [target.id, accountId, me.id]
       );
     }
   });
 
-  await auditLog(me.id, "assign_accounts", "user", user.id, { account_ids: accountIds });
+  await auditLog(me.id, "update_user_access", "user", target.id, {
+    previous_role: target.role,
+    role: parsed.data.role,
+    account_ids: accountIds,
+  });
+  revalidatePath("/", "layout");
   revalidatePath("/settings");
-  return { ok: true as const, count: accountIds.length };
+  return { ok: true as const, role: parsed.data.role, count: accountIds.length };
 }
 
 export async function resetAllData(confirmPhrase: string) {

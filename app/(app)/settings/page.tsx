@@ -1,5 +1,5 @@
 import { requirePageRole } from "@/lib/session";
-import { dbAll, dbGet } from "@/lib/db";
+import { dbAll, dbGet, type Role } from "@/lib/db";
 import UserManager from "./UserManager";
 import BackupCard from "./BackupCard";
 import DangerZone from "./DangerZone";
@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
   const me = await requirePageRole(["admin"]);
-  const users = await dbAll<{ id: number; email: string; name: string; role: string; created_at: string }>(
+  const users = await dbAll<{ id: number; email: string; name: string; role: Role; created_at: string }>(
     "SELECT id, email, name, role, created_at FROM users ORDER BY created_at ASC"
   );
   const accounts = await dbAll<{ id: number; name: string; handle: string; platform: string }>(

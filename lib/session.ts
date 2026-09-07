@@ -1,7 +1,7 @@
 import { getIronSession, SessionOptions } from "iron-session";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import type { Role } from "./db";
+import { dbGet, type Role } from "./db";
 
 export type SessionUser = {
   id: number;
@@ -41,7 +41,15 @@ export async function getSession() {
 
 export async function currentUser(): Promise<SessionUser | null> {
   const s = await getSession();
-  return s.user ?? null;
+  if (!s.user) return null;
+
+  // Refresh authorization from the database on every request so role changes
+  // and user deletion take effect immediately, not only after the next login.
+  const current = await dbGet<SessionUser>(
+    "SELECT id, email, name, role FROM users WHERE id = ?",
+    [s.user.id]
+  );
+  return current ?? null;
 }
 
 export async function requireUser(): Promise<SessionUser> {

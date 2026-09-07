@@ -486,7 +486,7 @@ function TrackUrlPanel({ accounts }: { accounts: AccountRow[] }) {
   );
 }
 
-export default function ScraperClient({ accounts }: { accounts: AccountRow[] }) {
+export default function ScraperClient({ accounts, canScrapeAll }: { accounts: AccountRow[]; canScrapeAll: boolean }) {
   const activeCount = accounts.filter((a) => a.scrape_enabled).length;
   const trackedPosts = accounts.reduce((s, a) => s + (a.tracked_posts ?? 0), 0);
   const errorCount = accounts.filter((a) => a.last_scrape_status === "error").length;
@@ -500,7 +500,7 @@ export default function ScraperClient({ accounts }: { accounts: AccountRow[] }) 
             Scraping harian Instagram &amp; TikTok — follower, likes, komentar, plays.
           </p>
         </div>
-        <ScrapeAllButton />
+        {canScrapeAll && <ScrapeAllButton />}
       </div>
 
       {errorCount > 0 && (
@@ -536,8 +536,11 @@ export default function ScraperClient({ accounts }: { accounts: AccountRow[] }) 
         <div className="card-bd p-0">
           {accounts.length === 0 ? (
             <div className="px-5 py-10 text-center text-slate-500 text-sm">
-              Belum ada akun Instagram atau TikTok.{" "}
-              <Link href="/accounts/new" className="text-brand-600 hover:underline">Tambah akun dulu.</Link>
+              {canScrapeAll ? (
+                <>Belum ada akun Instagram atau TikTok. <Link href="/accounts/new" className="text-brand-600 hover:underline">Tambah akun dulu.</Link></>
+              ) : (
+                <>Belum ada akun yang ditugaskan. Minta admin memberikan akses akun terlebih dahulu.</>
+              )}
             </div>
           ) : (
             <table className="w-full">
@@ -559,7 +562,7 @@ export default function ScraperClient({ accounts }: { accounts: AccountRow[] }) 
         </div>
       </div>
 
-      <TrackUrlPanel accounts={accounts} />
+      {accounts.length > 0 && <TrackUrlPanel accounts={accounts} />}
 
       <div className="card bg-amber-50 border-amber-200">
         <div className="card-bd">
