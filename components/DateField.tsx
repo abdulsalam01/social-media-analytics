@@ -77,6 +77,7 @@ export default function DateField({
         />
         <input
           type="date"
+          aria-label={label || "Tanggal"}
           title={tooltip}
           className={cn(
             "input !pl-9 cursor-pointer",

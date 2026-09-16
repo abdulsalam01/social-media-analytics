@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 
 const items = [
   { href: "/report", label: "Ringkasan", icon: BarChart3 },
+  { href: "/report/periods", label: "Bandingkan Periode", icon: GitCompare },
   { href: "/report/advanced", label: "Bandingkan Konten", icon: GitCompare },
 ];
 
