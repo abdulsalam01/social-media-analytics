@@ -25,8 +25,12 @@ export async function saveProfileInsight(input: unknown) {
   if (!(await hasAccountAccess(user, account_id))) return { ok: false as const, error: "Kamu tidak punya akses ke akun ini" };
 
   const prev = await dbGet<{ followers: number }>(
-    "SELECT followers FROM profile_insight WHERE account_id = ? AND date < ? ORDER BY date DESC LIMIT 1",
-    [account_id, date]
+    `SELECT COALESCE(
+       (SELECT followers FROM profile_insight WHERE account_id = ? AND date < ? ORDER BY date DESC LIMIT 1),
+       (SELECT initial_followers FROM accounts WHERE id = ?),
+       0
+     ) AS followers`,
+    [account_id, date, account_id]
   );
   const prevFollowers = prev?.followers ?? 0;
   const followers = Math.max(0, prevFollowers + new_followers);
@@ -104,8 +108,12 @@ export async function updateProfileInsight(input: unknown) {
   if (!(await hasAccountAccess(user, account_id))) return { ok: false as const, error: "Kamu tidak punya akses ke akun ini" };
 
   const prev = await dbGet<{ followers: number }>(
-    "SELECT followers FROM profile_insight WHERE account_id = ? AND date < ? AND id != ? ORDER BY date DESC LIMIT 1",
-    [account_id, date, id]
+    `SELECT COALESCE(
+       (SELECT followers FROM profile_insight WHERE account_id = ? AND date < ? AND id != ? ORDER BY date DESC LIMIT 1),
+       (SELECT initial_followers FROM accounts WHERE id = ?),
+       0
+     ) AS followers`,
+    [account_id, date, id, account_id]
   );
   const prevFollowers = prev?.followers ?? 0;
   const followers = Math.max(0, prevFollowers + new_followers);

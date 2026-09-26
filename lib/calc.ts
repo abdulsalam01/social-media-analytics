@@ -1,9 +1,13 @@
 import { dbGet } from "./db";
+import { calculateFollowerImpact } from "./follower-impact";
 export { weekStartOf, weekLabel } from "./dates";
 
 export type WeeklySummary = {
   week_start: string;
   total_followers: number;
+  initial_followers: number;
+  followers_impact: number;
+  followers_impact_rate: number;
   total_new_followers: number;
   total_content: number;
   total_visit_account: number;
@@ -46,6 +50,9 @@ export function contentEngagementRateSql(alias?: string): string {
 const emptySummary = (week: string): WeeklySummary => ({
   week_start: week,
   total_followers: 0,
+  initial_followers: 0,
+  followers_impact: 0,
+  followers_impact_rate: 0,
   total_new_followers: 0,
   total_content: 0,
   total_visit_account: 0,
@@ -67,7 +74,12 @@ const emptySummary = (week: string): WeeklySummary => ({
  * Aggregated summary for any date range. All queries are indexed grouped
  * aggregates — O(1) round-trip regardless of dataset size.
  */
-export async function computeRangeSummary(accountId: number, from: string, to: string): Promise<WeeklySummary> {
+export async function computeRangeSummary(
+  accountId: number,
+  from: string,
+  to: string,
+  initialFollowers = 0
+): Promise<WeeklySummary> {
   const engagementSql = contentEngagementSql();
   const profileAgg = await dbGet<{ visit: number; reach: number; new_followers: number }>(
     `SELECT
@@ -111,7 +123,8 @@ export async function computeRangeSummary(accountId: number, from: string, to: s
     [accountId, from, to]
   );
 
-  const followers = lastFollowers?.followers ?? 0;
+  const followerImpact = calculateFollowerImpact(initialFollowers, lastFollowers?.followers);
+  const followers = followerImpact.currentFollowers;
   const engagement = contentAgg?.engagement ?? 0;
   const reach = contentAgg?.reach ?? 0;
   const plays = contentAgg?.plays ?? 0;
@@ -119,6 +132,9 @@ export async function computeRangeSummary(accountId: number, from: string, to: s
   return {
     week_start: from,
     total_followers: followers,
+    initial_followers: followerImpact.initialFollowers,
+    followers_impact: followerImpact.impact,
+    followers_impact_rate: followerImpact.impactRate ?? 0,
     total_new_followers: profileAgg?.new_followers ?? 0,
     total_content: contentAgg?.total_content ?? 0,
     total_visit_account: profileAgg?.visit ?? 0,
@@ -137,10 +153,10 @@ export async function computeRangeSummary(accountId: number, from: string, to: s
   };
 }
 
-export async function computeWeeklySummary(accountId: number, weekStart: string): Promise<WeeklySummary> {
+export async function computeWeeklySummary(accountId: number, weekStart: string, initialFollowers = 0): Promise<WeeklySummary> {
   const weekEnd = new Date(weekStart + "T00:00:00Z");
   weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
-  return computeRangeSummary(accountId, weekStart, weekEnd.toISOString().slice(0, 10));
+  return computeRangeSummary(accountId, weekStart, weekEnd.toISOString().slice(0, 10), initialFollowers);
 }
 
 export function growthDelta(cur: WeeklySummary, prev: WeeklySummary | null): Partial<WeeklySummary> {

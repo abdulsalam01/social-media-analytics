@@ -24,7 +24,7 @@ export default async function AccountScraperPage({
               SELECT pi.followers FROM profile_insight pi
               WHERE pi.account_id = a.id
               ORDER BY pi.date DESC, pi.id DESC LIMIT 1
-            ), 0) AS followers
+            ), a.initial_followers, 0) AS followers
      FROM accounts a WHERE a.id = ?`,
     [id]
   );

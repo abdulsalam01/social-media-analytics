@@ -127,6 +127,31 @@ test("daily normalization divides additive totals, never follower stocks, weight
   assert.equal(metrics.find((metric) => metric.key === "engagement_per_post").value1, 18.5);
 });
 
+test("initial follower metrics are dynamic stocks and never divided by period duration", async () => {
+  const [first, second] = await summaries();
+  const metrics = comparisonMetrics(first, second, 2, 4, "daily", "instagram", 100);
+  assert.equal(metrics.find((metric) => metric.key === "initial_followers").value1, 100);
+  assert.equal(metrics.find((metric) => metric.key === "followers_impact").value1, 5);
+  assert.equal(metrics.find((metric) => metric.key === "followers_impact").value2, 10);
+  assert.equal(metrics.find((metric) => metric.key === "followers_impact_rate").value2, 0.1);
+
+  const edited = comparisonMetrics(first, second, 2, 4, "daily", "instagram", 105);
+  assert.equal(edited.find((metric) => metric.key === "followers_impact").value2, 5);
+  assert.equal(edited.find((metric) => metric.key === "followers_impact_rate").value2, 5 / 105);
+  assert.equal(second.followers, 110); // editing baseline never mutates the aggregate/history
+});
+
+test("initial followers provide an honest zero-impact fallback when no snapshot exists", async () => {
+  const [empty, historical] = await summaries(
+    { from: "2025-12-01", to: "2025-12-31" },
+    { from: "2026-01-06", to: "2026-01-07" }
+  );
+  const metrics = comparisonMetrics(empty, historical, 31, 2, "total", "instagram", 100);
+  assert.equal(metrics.find((metric) => metric.key === "followers").value1, 100);
+  assert.equal(metrics.find((metric) => metric.key === "followers_impact").value1, 0);
+  assert.equal(metrics.find((metric) => metric.key === "followers_impact_rate").value1, 0);
+});
+
 test("relative change handles zero/null/negative baselines without Infinity or NaN", () => {
   assert.deepEqual(compareValues(0, 34), { delta: 34, relativeChange: null });
   assert.deepEqual(compareValues(0, 0), { delta: 0, relativeChange: 0 });

@@ -1,11 +1,12 @@
 "use client";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Instagram, Music2, Trash2, Save, AlertTriangle } from "lucide-react";
+import { ArrowRight, Flag, Instagram, Music2, Trash2, Save, AlertTriangle, TrendingDown, TrendingUp, Users } from "lucide-react";
 import { cn, fmtNum } from "@/lib/utils";
 import { updateAccount, deleteAccount } from "../../actions";
 import { useToast } from "@/components/Toast";
 import type { Account } from "@/lib/db";
+import { calculateFollowerImpact } from "@/lib/follower-impact";
 
 export default function EditAccountForm({
   account,
@@ -13,23 +14,31 @@ export default function EditAccountForm({
   canDelete,
 }: {
   account: Account;
-  stats: { profile_rows: number; content_rows: number };
+  stats: { profile_rows: number; content_rows: number; latest_followers: number | null };
   canDelete: boolean;
 }) {
   const [name, setName] = useState(account.name);
   const [handle, setHandle] = useState(account.handle);
   const [platform, setPlatform] = useState<"instagram" | "tiktok">(account.platform);
+  const [initialFollowers, setInitialFollowers] = useState(String(account.initial_followers));
   const [confirm, setConfirm] = useState("");
   const [pending, start] = useTransition();
   const toast = useToast();
   const router = useRouter();
 
   const totalRows = stats.profile_rows + stats.content_rows;
+  const followerImpact = calculateFollowerImpact(Number(initialFollowers || 0), stats.latest_followers);
 
   function onSave(e: React.FormEvent) {
     e.preventDefault();
     start(async () => {
-      const res = await updateAccount({ id: account.id, name, handle: handle.replace(/^@/, ""), platform });
+      const res = await updateAccount({
+        id: account.id,
+        name,
+        handle: handle.replace(/^@/, ""),
+        platform,
+        initial_followers: Number(initialFollowers || 0),
+      });
       if (!res.ok) return toast("error", res.error);
       toast("success", "Akun diperbarui!");
       router.push("/accounts");
@@ -100,6 +109,56 @@ export default function EditAccountForm({
               required
             />
           </div>
+        </div>
+        <div className="overflow-hidden rounded-2xl border border-brand-100 bg-gradient-to-br from-brand-50 via-white to-emerald-50/40">
+          <div className="flex items-start gap-3 border-b border-brand-100/70 p-4">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-600 text-white shadow-sm">
+              <Flag className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <label className="label" htmlFor="initial-followers">Initial Followers</label>
+              <input
+                id="initial-followers"
+                type="number"
+                min="0"
+                max="2147483647"
+                step="1"
+                inputMode="numeric"
+                className="input bg-white"
+                value={initialFollowers}
+                onChange={(e) => setInitialFollowers(e.target.value)}
+                required
+              />
+              <p className="mt-2 text-xs leading-5 text-slate-500">
+                Baseline saat kamu mulai mengelola akun. Mengubahnya langsung menyesuaikan laporan dampak, tanpa menulis ulang histori harian.
+              </p>
+            </div>
+          </div>
+          {followerImpact.enabled ? (
+            <div className="grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-2 px-4 py-3 text-center">
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Awal</div>
+                <div className="mt-1 font-bold tabular-nums text-slate-900">{fmtNum(followerImpact.initialFollowers)}</div>
+              </div>
+              <ArrowRight className="h-4 w-4 text-slate-300" />
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Sekarang</div>
+                <div className="mt-1 font-bold tabular-nums text-slate-900">{fmtNum(followerImpact.currentFollowers)}</div>
+              </div>
+              <ArrowRight className="h-4 w-4 text-slate-300" />
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Dampak</div>
+                <div className={cn("mt-1 inline-flex items-center gap-1 font-bold tabular-nums", followerImpact.impact >= 0 ? "text-emerald-600" : "text-red-600")}>
+                  {followerImpact.impact >= 0 ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
+                  {followerImpact.impact > 0 ? "+" : ""}{fmtNum(followerImpact.impact)}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 px-4 py-3 text-xs text-slate-500">
+              <Users className="h-4 w-4 text-slate-400" /> Isi lebih dari 0 untuk mengaktifkan tracking dampak follower.
+            </div>
+          )}
         </div>
         <button type="submit" className="btn-primary" disabled={pending}>
           <Save className="w-4 h-4" /> {pending ? "Menyimpan…" : "Simpan Perubahan"}

@@ -1,4 +1,5 @@
 import { isValidISODate, shiftISODate, todayInTimeZone } from "./dates";
+import { calculateFollowerImpact } from "./follower-impact";
 
 export type ComparisonBasis = "total" | "daily";
 export type ComparisonRange = { from: string; to: string };
@@ -142,7 +143,8 @@ export function comparisonMetrics(
   days1: number,
   days2: number,
   basis: ComparisonBasis,
-  platform: "instagram" | "tiktok"
+  platform: "instagram" | "tiktok",
+  initialFollowers = 0
 ): ComparisonMetric[] {
   const rows: ComparisonMetric[] = [];
   function add(key: string, label: string, kind: ComparisonMetric["kind"], raw1: number | null, raw2: number | null) {
@@ -151,7 +153,17 @@ export function comparisonMetrics(
     const value2 = daily && raw2 !== null ? raw2 / days2 : raw2;
     rows.push({ key, label, kind, value1, value2, ...compareValues(value1, value2) });
   }
-  add("followers", "Followers akhir periode", "stock", data1.followers, data2.followers);
+  const baselineEnabled = initialFollowers > 0;
+  const impact1 = calculateFollowerImpact(initialFollowers, data1.followers);
+  const impact2 = calculateFollowerImpact(initialFollowers, data2.followers);
+  const followers1 = baselineEnabled ? impact1.currentFollowers : data1.followers;
+  const followers2 = baselineEnabled ? impact2.currentFollowers : data2.followers;
+  add("followers", "Followers akhir periode", "stock", followers1, followers2);
+  if (baselineEnabled) {
+    add("initial_followers", "Initial followers", "stock", impact1.initialFollowers, impact2.initialFollowers);
+    add("followers_impact", "Dampak sejak initial", "stock", impact1.impact, impact2.impact);
+    add("followers_impact_rate", "Pertumbuhan dari initial", "rate", impact1.impactRate, impact2.impactRate);
+  }
   add("new_followers", "Penambahan follower", "count", data1.new_followers, data2.new_followers);
   add("posts", "Konten dipublikasikan", "count", data1.posts, data2.posts);
   add("account_visits", platform === "tiktok" ? "Video views akun" : "Kunjungan akun", "count", data1.account_visits, data2.account_visits);
@@ -168,7 +180,7 @@ export function comparisonMetrics(
   add("engagement_per_post", "Engagement per konten", "average", ratio(data1.engagement, data1.posts), ratio(data2.engagement, data2.posts));
   add("er_reach", "ER by reach", "rate", ratio(data1.engagement, data1.reach), ratio(data2.engagement, data2.reach));
   add("er_plays", "ER by plays", "rate", ratio(data1.engagement, data1.plays), ratio(data2.engagement, data2.plays));
-  add("er_followers", "Engagement by followers", "rate", ratio(data1.engagement, data1.followers), ratio(data2.engagement, data2.followers));
+  add("er_followers", "Engagement by followers", "rate", ratio(data1.engagement, followers1), ratio(data2.engagement, followers2));
   return rows;
 }
 

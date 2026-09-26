@@ -7,7 +7,7 @@ import { createConfiguredClient } from "./db-client";
 
 const REQUIRED_COLUMNS: Record<string, string[]> = {
   accounts: [
-    "id", "name", "platform", "handle", "scrape_enabled", "scrape_url",
+    "id", "name", "platform", "handle", "initial_followers", "scrape_enabled", "scrape_url",
     "last_scraped_at", "last_scrape_status", "created_at",
   ],
   account_content_goals: [

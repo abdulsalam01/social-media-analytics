@@ -4,7 +4,7 @@ import { getAccessibleAccounts } from "@/lib/account-access";
 import { requirePageRole } from "@/lib/session";
 import PlatformBadge from "@/components/PlatformBadge";
 import EmptyState from "@/components/EmptyState";
-import { fmtDate } from "@/lib/utils";
+import { fmtDate, fmtNum } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -48,13 +48,14 @@ export default async function AccountsPage() {
         />
       ) : (
         <div className="card">
-          <div className="card-bd p-0">
+          <div className="card-bd p-0 overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="text-left text-xs uppercase tracking-wider text-slate-500 border-b border-slate-100">
                   <th className="px-5 py-3">Nama</th>
                   <th className="px-5 py-3">Platform</th>
                   <th className="px-5 py-3">Handle</th>
+                  <th className="px-5 py-3 text-right whitespace-nowrap">Initial Followers</th>
                   <th className="px-5 py-3">Ditambahkan</th>
                   <th className="px-5 py-3 text-right">Aksi</th>
                 </tr>
@@ -65,6 +66,7 @@ export default async function AccountsPage() {
                     <td className="px-5 py-4 font-medium text-slate-900">{a.name}</td>
                     <td className="px-5 py-4"><PlatformBadge platform={a.platform} /></td>
                     <td className="px-5 py-4 text-slate-600">@{a.handle}</td>
+                    <td className="px-5 py-4 text-right tabular-nums text-slate-700">{fmtNum(a.initial_followers)}</td>
                     <td className="px-5 py-4 text-slate-500 text-sm">{fmtDate(a.created_at)}</td>
                     <td className="px-5 py-4 text-right">
                       <Link href={`/dashboard?account=${a.id}`} className="btn-ghost !py-1 !px-2 text-xs">Dashboard</Link>

@@ -3,7 +3,7 @@ import { useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
-  BarChart, Bar, AreaChart, Area, Cell,
+  BarChart, Bar, AreaChart, Area, Cell, ReferenceLine,
 } from "recharts";
 import { fmtNum } from "@/lib/utils";
 import type { Platform } from "@/lib/db";
@@ -49,6 +49,7 @@ export default function DashboardCharts({
   rangeLabel = "30 hari terakhir",
   sortBy = "engagement",
   backHref = "",
+  initialFollowers = 0,
 }: {
   dailySeries: Daily[];
   contentSeries: Content[];
@@ -57,6 +58,7 @@ export default function DashboardCharts({
   rangeLabel?: string;
   sortBy?: string;
   backHref?: string;
+  initialFollowers?: number;
 }) {
   const isTT = platform === "tiktok";
   const router = useRouter();
@@ -159,6 +161,15 @@ export default function DashboardCharts({
               <XAxis dataKey="date" stroke="#94a3b8" fontSize={11} />
               <YAxis stroke="#94a3b8" fontSize={11} tickFormatter={(v) => fmtNum(v, { compact: true })} />
               <Tooltip contentStyle={ttStyle} />
+              {initialFollowers > 0 && (
+                <ReferenceLine
+                  y={initialFollowers}
+                  stroke="#7c3aed"
+                  strokeDasharray="5 4"
+                  ifOverflow="extendDomain"
+                  label={{ value: `Initial ${fmtNum(initialFollowers)}`, position: "insideTopLeft", fill: "#6d28d9", fontSize: 10 }}
+                />
+              )}
               <Area type="monotone" dataKey="Followers" stroke="#3757fa" strokeWidth={2.5} fill="url(#fFollowers)" />
             </AreaChart>
           </ResponsiveContainer>

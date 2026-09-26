@@ -13,6 +13,7 @@ import AccountPicker from "@/components/AccountPicker";
 import DashboardCharts from "./DashboardCharts";
 import DashboardFilters from "./DashboardFilters";
 import TopPostsList from "./TopPostsList";
+import FollowerImpactCard from "@/components/FollowerImpactCard";
 
 export const dynamic = "force-dynamic";
 
@@ -60,8 +61,8 @@ export default async function DashboardPage({
   const minEng = Math.max(0, parseInt(sp.minEng || "0") || 0);
   const linkOnly = sp.linkOnly === "1";
 
-  const cur = await computeRangeSummary(account.id, rangeFrom, rangeTo);
-  const prev = await computeRangeSummary(account.id, period.prevFrom, period.prevTo);
+  const cur = await computeRangeSummary(account.id, rangeFrom, rangeTo, account.initial_followers);
+  const prev = await computeRangeSummary(account.id, period.prevFrom, period.prevTo, account.initial_followers);
   const delta = growthDelta(cur, prev);
   const engagementSql = contentEngagementSql();
   const engagementRateSql = contentEngagementRateSql();
@@ -216,6 +217,14 @@ export default async function DashboardPage({
             <MetricCard label="Engagement" value={cur.total_engagement} delta={delta.total_engagement} icon={<Activity className="w-5 h-5" />} tone="green" />
           </div>
 
+          <FollowerImpactCard
+            accountId={account.id}
+            initialFollowers={account.initial_followers}
+            currentFollowers={cur.total_followers}
+            periodLabel={rangeLabel}
+            canEdit={user.role !== "viewer"}
+          />
+
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <MetricCard label="Likes" value={cur.total_likes} icon={<Heart className="w-5 h-5" />} tone="pink" />
             <MetricCard label="Comments" value={cur.total_comments} icon={<MessageCircle className="w-5 h-5" />} tone="brand" />
@@ -239,6 +248,7 @@ export default async function DashboardPage({
             rangeLabel={rangeLabel}
             sortBy={sortBy}
             backHref={dashboardHref}
+            initialFollowers={account.initial_followers}
           />
 
           <TopPostsList

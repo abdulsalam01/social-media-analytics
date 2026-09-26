@@ -12,10 +12,11 @@ export default function HelpPage() {
         <Steps items={[
           "Login pakai akun yang dikasih admin.",
           "Admin membuka Akun Sosmed untuk menambah akun dan menugaskannya ke editor/viewer.",
-          "Pilih platform (Instagram atau TikTok), isi nama brand + handle.",
+          "Pilih platform, isi nama brand + handle, lalu isi Initial Followers sesuai jumlah saat pengelolaan dimulai (atau 0 untuk menonaktifkan baseline).",
           "Buka menu Input Data. Pilih tab Data Profil Harian, catat followers/visit/reach dari Insight aplikasi sosmed.",
           "Pindah ke tab Data Konten, input tiap post yang dipublish minggu itu.",
           "Kembali ke Dashboard untuk lihat grafik dan metrik otomatis terhitung.",
+          "Untuk mengoreksi baseline, buka Akun Sosmed → Edit. Laporan dampak langsung menyesuaikan tanpa mengubah histori harian.",
         ]} />
       </Section>
 

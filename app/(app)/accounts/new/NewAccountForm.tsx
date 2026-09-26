@@ -1,7 +1,7 @@
 "use client";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Instagram, Music2 } from "lucide-react";
+import { Flag, Instagram, Music2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createAccount } from "./actions";
 import { useToast } from "@/components/Toast";
@@ -10,6 +10,7 @@ export default function NewAccountForm() {
   const [name, setName] = useState("");
   const [handle, setHandle] = useState("");
   const [platform, setPlatform] = useState<"instagram" | "tiktok">("instagram");
+  const [initialFollowers, setInitialFollowers] = useState("0");
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const router = useRouter();
@@ -19,7 +20,12 @@ export default function NewAccountForm() {
     e.preventDefault();
     setError(null);
     start(async () => {
-      const res = await createAccount({ name, handle: handle.replace(/^@/, ""), platform });
+      const res = await createAccount({
+        name,
+        handle: handle.replace(/^@/, ""),
+        platform,
+        initial_followers: Number(initialFollowers || 0),
+      });
       if (!res.ok) {
         setError(res.error);
         return;
@@ -94,6 +100,30 @@ export default function NewAccountForm() {
           />
         </div>
         <div className="hint">Tanpa simbol @.</div>
+      </div>
+      <div className="rounded-xl border border-brand-100 bg-gradient-to-br from-brand-50 to-white p-4">
+        <div className="flex items-start gap-3">
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-600 text-white shadow-sm">
+            <Flag className="h-5 w-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <label className="label" htmlFor="initial-followers">Initial Followers</label>
+            <input
+              id="initial-followers"
+              type="number"
+              min="0"
+              max="2147483647"
+              step="1"
+              inputMode="numeric"
+              className="input"
+              value={initialFollowers}
+              onChange={(e) => setInitialFollowers(e.target.value)}
+              placeholder="0"
+              required
+            />
+            <p className="hint">Jumlah follower saat pengelolaan dimulai. Isi 0 jika belum ingin memakai baseline.</p>
+          </div>
+        </div>
       </div>
       <div className="flex gap-3">
         <button type="submit" className="btn-primary" disabled={pending}>

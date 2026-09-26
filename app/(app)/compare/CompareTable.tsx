@@ -6,10 +6,13 @@ import { Crown, TrendingUp, TrendingDown } from "lucide-react";
 
 type Brand = { account: Account; color: string; stats: BrandStats };
 
-type MetricRow = { key: string; label: string; isPct?: boolean; higherBetter?: boolean };
+type MetricRow = { key: string; label: string; isPct?: boolean; compete?: boolean; baselineOnly?: boolean };
 
 const METRICS: MetricRow[] = [
   { key: "latest_followers", label: "Followers Saat Ini" },
+  { key: "initial_followers", label: "Initial Followers", compete: false, baselineOnly: true },
+  { key: "impact_since_initial", label: "Dampak sejak Initial", baselineOnly: true },
+  { key: "impact_rate", label: "Pertumbuhan dari Initial", isPct: true, baselineOnly: true },
   { key: "followers_growth", label: "Followers Growth" },
   { key: "new_followers_sum", label: "Penambahan Follower" },
   { key: "total_content", label: "Total Konten" },
@@ -24,11 +27,15 @@ const METRICS: MetricRow[] = [
 ];
 
 export default function CompareTable({ brands }: { brands: Brand[] }) {
-  function winnerIndex(key: string): number {
+  const hasBaseline = brands.some((brand) => brand.stats.initial_followers > 0);
+  const metrics = METRICS.filter((metric) => !metric.baselineOnly || hasBaseline);
+
+  function winnerIndex(metric: MetricRow): number {
+    if (metric.compete === false) return -1;
     let bestVal = -Infinity;
     let bestIdx = -1;
     brands.forEach((b, i) => {
-      const v = (b.stats as unknown as Record<string, number>)[key];
+      const v = (b.stats as unknown as Record<string, number>)[metric.key];
       if (v > bestVal) { bestVal = v; bestIdx = i; }
     });
     if (bestVal === 0) return -1;
@@ -63,8 +70,8 @@ export default function CompareTable({ brands }: { brands: Brand[] }) {
             </tr>
           </thead>
           <tbody>
-            {METRICS.map((m) => {
-              const winner = winnerIndex(m.key);
+            {metrics.map((m) => {
+              const winner = winnerIndex(m);
               return (
                 <tr key={m.key} className="border-b border-slate-50">
                   <td className="px-5 py-2.5 text-slate-700">{m.label}</td>
@@ -74,7 +81,7 @@ export default function CompareTable({ brands }: { brands: Brand[] }) {
                     return (
                       <td key={b.account.id} className="px-5 py-2.5 text-right">
                         <div className="inline-flex items-center gap-1.5">
-                          {m.key === "followers_growth" && raw !== 0 && (
+                          {(m.key === "followers_growth" || m.key === "impact_since_initial") && raw !== 0 && (
                             raw > 0
                               ? <TrendingUp className="w-3 h-3 text-emerald-600" />
                               : <TrendingDown className="w-3 h-3 text-red-600" />

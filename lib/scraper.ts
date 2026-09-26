@@ -286,6 +286,7 @@ type AccountRow = {
   handle: string;
   platform: string;
   scrape_url: string | null;
+  initial_followers: number;
 };
 
 type ContentRow = {
@@ -305,7 +306,7 @@ export async function runScrapeForAccount(
   userId?: number
 ): Promise<ScrapeAccountResult> {
   const account = await dbGet<AccountRow>(
-    "SELECT id, handle, platform, scrape_url FROM accounts WHERE id = ? AND scrape_enabled = 1",
+    "SELECT id, handle, platform, scrape_url, initial_followers FROM accounts WHERE id = ? AND scrape_enabled = 1",
     [accountId]
   );
 
@@ -363,7 +364,7 @@ export async function runScrapeForAccount(
        WHERE account_id = ? ORDER BY date DESC, id DESC LIMIT 1`,
       [accountId]
     );
-    followersForRate = latestProfile?.followers ?? 0;
+    followersForRate = latestProfile?.followers ?? account.initial_followers;
   }
 
   // Fetch existing content rows for this account to match by shortcode or link
@@ -502,7 +503,7 @@ export async function runScrapeForPost(postId: number, userId?: number): Promise
   if (row.scrape_enabled === 0) return { post_id: postId, status: "error", matched: false, error: "Scraping disabled for this post" };
 
   const account = await dbGet<AccountRow>(
-    "SELECT id, handle, platform, scrape_url FROM accounts WHERE id = ?",
+    "SELECT id, handle, platform, scrape_url, initial_followers FROM accounts WHERE id = ?",
     [row.account_id]
   );
   if (!account) return { post_id: postId, status: "error", matched: false, error: "Account not found" };
@@ -512,7 +513,7 @@ export async function runScrapeForPost(postId: number, userId?: number): Promise
      WHERE account_id = ? ORDER BY date DESC, id DESC LIMIT 1`,
     [row.account_id]
   );
-  const followers = latestProfile?.followers ?? 0;
+  const followers = latestProfile?.followers ?? account.initial_followers;
 
   // Determine shortcode: use stored shortcode, or extract from link
   let shortcode = row.shortcode;

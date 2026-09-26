@@ -19,6 +19,7 @@ const TABLE_STATEMENTS = [
      name               TEXT NOT NULL,
      platform           TEXT NOT NULL CHECK(platform IN ('instagram','tiktok')),
      handle             TEXT NOT NULL,
+     initial_followers  INTEGER NOT NULL DEFAULT 0,
      scrape_enabled     INTEGER NOT NULL DEFAULT 0,
      scrape_url         TEXT,
      last_scraped_at    TEXT,
@@ -172,6 +173,7 @@ const TABLE_STATEMENTS = [
 ] as const;
 
 const ADDITIVE_COLUMNS = [
+  { table: "accounts", column: "initial_followers", definition: "initial_followers INTEGER NOT NULL DEFAULT 0" },
   { table: "accounts", column: "scrape_enabled", definition: "scrape_enabled INTEGER NOT NULL DEFAULT 0" },
   { table: "accounts", column: "scrape_url", definition: "scrape_url TEXT" },
   { table: "accounts", column: "last_scraped_at", definition: "last_scraped_at TEXT" },

@@ -16,11 +16,12 @@ export default async function EditAccountPage({ params }: { params: Promise<{ id
   const account = await dbGet<Account>("SELECT * FROM accounts WHERE id = ?", [parsedId]);
   if (!account) notFound();
 
-  const stats = (await dbGet<{ profile_rows: number; content_rows: number }>(
+  const stats = (await dbGet<{ profile_rows: number; content_rows: number; latest_followers: number | null }>(
     `SELECT
        (SELECT COUNT(*) FROM profile_insight WHERE account_id = ?) AS profile_rows,
-       (SELECT COUNT(*) FROM content_insight WHERE account_id = ?) AS content_rows`,
-    [account.id, account.id]
+       (SELECT COUNT(*) FROM content_insight WHERE account_id = ?) AS content_rows,
+       (SELECT followers FROM profile_insight WHERE account_id = ? ORDER BY date DESC, id DESC LIMIT 1) AS latest_followers`,
+    [account.id, account.id, account.id]
   ))!;
 
   return (

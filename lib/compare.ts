@@ -1,6 +1,7 @@
 import { dbAll } from "./db";
 import { contentEngagementSql } from "./calc";
 import { isValidISODate, shiftISODate, todayInTimeZone } from "./dates";
+import { calculateFollowerImpact } from "./follower-impact";
 
 export type ComparePeriod = { from: string; to: string; label: string };
 
@@ -27,6 +28,9 @@ export type BrandStats = {
   total_engagement: number;
   avg_engagement_rate: number;
   latest_followers: number;
+  initial_followers: number;
+  impact_since_initial: number;
+  impact_rate: number;
   first_followers: number;
   followers_growth: number;
   new_followers_sum: number;
@@ -41,13 +45,18 @@ export type BrandStats = {
  *   - 1 grouped query for latest followers (window function)
  * All three use existing composite indexes.
  */
-export async function computeBrandStats(accountIds: number[], from: string, to: string): Promise<Map<number, BrandStats>> {
+export async function computeBrandStats(
+  accountIds: number[],
+  from: string,
+  to: string,
+  initialFollowersByAccount: ReadonlyMap<number, number> = new Map()
+): Promise<Map<number, BrandStats>> {
   const result = new Map<number, BrandStats>();
   if (accountIds.length === 0) return result;
   const ph = accountIds.map(() => "?").join(",");
   const engagementSql = contentEngagementSql("ci");
 
-  const contentRows = await dbAll<Omit<BrandStats, "latest_followers" | "first_followers" | "followers_growth" | "new_followers_sum" | "visit_sum" | "reach_sum">>(
+  const contentRows = await dbAll<Omit<BrandStats, "latest_followers" | "initial_followers" | "impact_since_initial" | "impact_rate" | "first_followers" | "followers_growth" | "new_followers_sum" | "visit_sum" | "reach_sum">>(
     `SELECT ci.account_id,
        COUNT(*) AS total_content,
        COALESCE(SUM(likes), 0)      AS total_likes,
@@ -101,7 +110,9 @@ export async function computeBrandStats(accountIds: number[], from: string, to: 
     const c = contentRows.find((r) => r.account_id === id);
     const p = profileRows.find((r) => r.account_id === id);
     const f = followerRows.find((r) => r.account_id === id);
-    const latest = f?.latest_followers ?? 0;
+    const initial = initialFollowersByAccount.get(id) ?? 0;
+    const followerImpact = calculateFollowerImpact(initial, f?.latest_followers);
+    const latest = followerImpact.currentFollowers;
     const first = f?.first_followers ?? latest;
     result.set(id, {
       account_id: id,
@@ -116,6 +127,9 @@ export async function computeBrandStats(accountIds: number[], from: string, to: 
       total_engagement: c?.total_engagement ?? 0,
       avg_engagement_rate: c?.avg_engagement_rate ?? 0,
       latest_followers: latest,
+      initial_followers: followerImpact.initialFollowers,
+      impact_since_initial: followerImpact.impact,
+      impact_rate: followerImpact.impactRate ?? 0,
       first_followers: first,
       followers_growth: latest - first,
       new_followers_sum: p?.new_followers_sum ?? 0,

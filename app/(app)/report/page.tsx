@@ -12,6 +12,7 @@ import ReportSubNav from "./ReportSubNav";
 import { TrendingUp, TrendingDown, Minus, ExternalLink } from "lucide-react";
 import { getAccessibleAccounts, resolveActiveAccount } from "@/lib/account-access";
 import { requirePageRole } from "@/lib/session";
+import FollowerImpactCard from "@/components/FollowerImpactCard";
 
 export const dynamic = "force-dynamic";
 
@@ -87,8 +88,8 @@ export default async function ReportPage({
   const month = sp.month || currentMonth();
   const period = resolvePeriod(mode, week, month, sp.from || "", sp.to || "");
 
-  const cur = await computeRangeSummary(account.id, period.from, period.to);
-  const prev = await computeRangeSummary(account.id, period.prevFrom, period.prevTo);
+  const cur = await computeRangeSummary(account.id, period.from, period.to, account.initial_followers);
+  const prev = await computeRangeSummary(account.id, period.prevFrom, period.prevTo, account.initial_followers);
   const delta = growthDelta(cur, prev);
   const isTT = account.platform === "tiktok";
   const engagementSql = contentEngagementSql();
@@ -111,6 +112,11 @@ export default async function ReportPage({
 
   const rows: Array<{ label: string; cur: number; delta: number | undefined; isPct?: boolean }> = [
     { label: "Total Followers", cur: cur.total_followers, delta: delta.total_followers },
+    ...(account.initial_followers > 0 ? [
+      { label: "Initial Followers", cur: cur.initial_followers, delta: undefined },
+      { label: "Dampak sejak Initial", cur: cur.followers_impact, delta: delta.followers_impact },
+      { label: "Pertumbuhan dari Initial", cur: cur.followers_impact_rate, delta: delta.followers_impact_rate, isPct: true },
+    ] : []),
     { label: "Penambahan Follower", cur: cur.total_new_followers, delta: delta.total_new_followers },
     { label: "Total Content", cur: cur.total_content, delta: delta.total_content },
     ...(isTT
@@ -155,6 +161,14 @@ export default async function ReportPage({
           <PrintButton />
         </div>
       </div>
+
+      <FollowerImpactCard
+        accountId={account.id}
+        initialFollowers={account.initial_followers}
+        currentFollowers={cur.total_followers}
+        periodLabel={period.label}
+        canEdit={user.role !== "viewer"}
+      />
 
       <div className="card overflow-hidden">
         <div className="p-6 bg-gradient-to-r from-brand-600 to-brand-400 text-white">

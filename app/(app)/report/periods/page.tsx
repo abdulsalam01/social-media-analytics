@@ -46,7 +46,7 @@ export default async function PeriodComparisonPage({ searchParams }: {
   );
   if (summaries.length !== 2) throw new Error("Ringkasan perbandingan periode tidak lengkap");
   const [data1, data2] = summaries;
-  const metrics = comparisonMetrics(data1, data2, days1, days2, basis, account.platform);
+  const metrics = comparisonMetrics(data1, data2, days1, days2, basis, account.platform, account.initial_followers);
   const engagement = metrics.find((metric) => metric.key === "engagement")!;
   const warnings = [...notices];
   if (overlapDays) warnings.push(`Kedua rentang beririsan ${overlapDays} hari. Data tanggal tersebut dihitung secara independen pada masing-masing rentang.`);
@@ -92,8 +92,8 @@ export default async function PeriodComparisonPage({ searchParams }: {
         </div>
         <div className="p-6 space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <RangeCard label="Rentang 1 · Baseline" range={range1} data={data1} />
-            <RangeCard label="Rentang 2 · Evaluasi" range={range2} data={data2} />
+            <RangeCard label="Rentang 1 · Baseline" range={range1} data={data1} initialFollowers={account.initial_followers} />
+            <RangeCard label="Rentang 2 · Evaluasi" range={range2} data={data2} initialFollowers={account.initial_followers} />
             <div className="rounded-xl border border-brand-100 bg-brand-50 p-4">
               <div className="text-xs font-semibold text-brand-700">Perubahan engagement{basis === "daily" ? " per hari" : ""}</div>
               <div className="text-2xl font-bold text-slate-900 my-3">{formatComparisonValue(engagement.value2, engagement, basis)}</div>
@@ -135,6 +135,7 @@ export default async function PeriodComparisonPage({ searchParams }: {
           <div className="text-xs text-slate-500 space-y-1 border-t border-slate-100 pt-4">
             <p>Engagement = likes + komentar + share + save + repost. ER dihitung dari total engagement ÷ total pembagi periode, bukan rata-rata ER setiap post.</p>
             <p>Followers memakai snapshot terakhir pada/sebelum tanggal akhir, bukan jumlah seluruh snapshot. Angka followers dan rasio tidak dibagi durasi.</p>
+            {account.initial_followers > 0 && <p>Dampak follower = followers akhir periode − initial followers. Mengubah initial followers menyesuaikan perhitungan ini tanpa mengubah histori.</p>}
             <p>Basis harian memakai seluruh hari kalender termasuk hari tanpa input. Data profil yang belum diinput tidak berarti aktivitas akun benar-benar nol.</p>
             <p>Selisih ER ditulis dalam poin persentase (pp). Perubahan relatif = selisih ÷ |nilai Rentang 1| × 100%. Jika baseline nol, persentase relatif tidak dihitung; jika pembagi tidak tersedia, tampil —.</p>
           </div>
@@ -144,8 +145,9 @@ export default async function PeriodComparisonPage({ searchParams }: {
   );
 }
 
-function RangeCard({ label, range, data }: { label: string; range: ComparisonRange; data: ComparisonAggregate }) {
+function RangeCard({ label, range, data, initialFollowers }: { label: string; range: ComparisonRange; data: ComparisonAggregate; initialFollowers: number }) {
   const days = rangeDays(range);
+  const currentFollowers = data.followers ?? (initialFollowers > 0 ? initialFollowers : null);
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
       <div className="text-xs font-semibold text-slate-600">{label}</div>
@@ -154,6 +156,7 @@ function RangeCard({ label, range, data }: { label: string; range: ComparisonRan
       <div className="text-xs text-slate-500 mt-3 space-y-1">
         <p>Data profil: {fmtNum(data.profile_days)} / {fmtNum(days)} hari</p>
         <p>Snapshot followers: {data.followers_date ? fmtDate(data.followers_date) : "belum tersedia"}</p>
+        {initialFollowers > 0 && <p>Initial → akhir: {fmtNum(initialFollowers)} → {fmtNum(currentFollowers ?? initialFollowers)}</p>}
         {data.followers_date && data.followers_date < range.from && <p className="text-amber-700">Snapshot followers berasal dari sebelum rentang ini.</p>}
       </div>
     </div>

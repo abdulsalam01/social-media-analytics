@@ -146,6 +146,7 @@ export type Account = {
   name: string;
   platform: Platform;
   handle: string;
+  initial_followers: number;
   created_at: string;
 };
 

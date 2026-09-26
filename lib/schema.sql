@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS accounts (
   name               TEXT NOT NULL,
   platform           TEXT NOT NULL CHECK(platform IN ('instagram','tiktok')),
   handle             TEXT NOT NULL,
+  initial_followers  INTEGER NOT NULL DEFAULT 0,
   scrape_enabled     INTEGER NOT NULL DEFAULT 0,
   scrape_url         TEXT,
   last_scraped_at    TEXT,

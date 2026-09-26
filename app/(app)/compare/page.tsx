@@ -52,7 +52,8 @@ export default async function ComparePage({
   const period = resolveComparePeriod(range, sp.from, sp.to);
   const metric = ["engagement", "followers", "reach", "rate"].includes(sp.metric || "") ? sp.metric! : "engagement";
 
-  const stats = await computeBrandStats(activeIds, period.from, period.to);
+  const initialFollowersByAccount = new Map(activeAccounts.map((account) => [account.id, account.initial_followers]));
+  const stats = await computeBrandStats(activeIds, period.from, period.to, initialFollowersByAccount);
   const dailySeries = await getBrandDailySeries(activeIds, period.from, period.to);
   const contentDaily = await getBrandContentDaily(activeIds, period.from, period.to);
 

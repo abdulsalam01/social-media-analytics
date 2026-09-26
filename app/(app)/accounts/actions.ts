@@ -10,6 +10,7 @@ const UpdateSchema = z.object({
   name: z.string().trim().min(1).max(120),
   handle: z.string().trim().min(1).max(80).regex(/^[a-zA-Z0-9._-]+$/, "Handle hanya boleh huruf, angka, . _ -"),
   platform: z.enum(["instagram", "tiktok"]),
+  initial_followers: z.number().int("Initial followers harus bilangan bulat").min(0, "Initial followers tidak boleh negatif").max(2_147_483_647),
 });
 
 type Result = { ok: true } | { ok: false; error: string };
@@ -18,15 +19,15 @@ export async function updateAccount(input: unknown): Promise<Result> {
   const user = await requireRole(["admin", "editor"]);
   const parsed = UpdateSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Input tidak valid" };
-  const { id, name, handle, platform } = parsed.data;
+  const { id, name, handle, platform, initial_followers } = parsed.data;
   if (!(await hasAccountAccess(user, id))) return { ok: false, error: "Kamu tidak punya akses ke akun ini" };
   try {
     const res = await dbRun(
-      "UPDATE accounts SET name = ?, handle = ?, platform = ? WHERE id = ?",
-      [name, handle.toLowerCase(), platform, id]
+      "UPDATE accounts SET name = ?, handle = ?, platform = ?, initial_followers = ? WHERE id = ?",
+      [name, handle.toLowerCase(), platform, initial_followers, id]
     );
     if (res.changes === 0) return { ok: false, error: "Akun tidak ditemukan" };
-    await auditLog(user.id, "update", "account", id, { name, handle, platform });
+    await auditLog(user.id, "update", "account", id, { name, handle, platform, initial_followers });
     return { ok: true };
   } catch (e: unknown) {
     const err = e as { code?: string; message?: string };

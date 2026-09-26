@@ -1,11 +1,11 @@
 "use client";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Save, Info } from "lucide-react";
+import { Save, Info, Flag } from "lucide-react";
 import { saveProfileInsight } from "./actions";
 import { useToast } from "@/components/Toast";
 import type { Account } from "@/lib/db";
-import { todayISO, cn } from "@/lib/utils";
+import { todayISO, cn, fmtNum } from "@/lib/utils";
 import DateField from "@/components/DateField";
 
 export default function ProfileForm({ account }: { account: Account }) {
@@ -47,6 +47,18 @@ export default function ProfileForm({ account }: { account: Account }) {
           Buka {account.platform === "instagram" ? "Instagram → Insight → Overview" : "TikTok → Analytics → Overview"} lalu catat angka harian dari tanggal yang dipilih.
         </div>
       </div>
+
+      {account.initial_followers > 0 && (
+        <div className="rounded-xl border border-brand-100 bg-brand-50/60 px-4 py-3 flex items-start gap-3">
+          <Flag className="w-4 h-4 mt-0.5 shrink-0 text-brand-600" />
+          <div>
+            <div className="text-sm font-semibold text-brand-900">Baseline: {fmtNum(account.initial_followers)} followers</div>
+            <p className="mt-0.5 text-xs leading-5 text-brand-700">
+              Jika belum ada data profil sebelumnya, penambahan hari pertama dihitung dari baseline ini. Histori lama tidak diubah.
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <DateField
